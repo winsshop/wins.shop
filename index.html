@@ -36,8 +36,8 @@
 
         async function loadCatalog() {
             console.log("🚀 Начинаем загрузку каталога...");
-            let shortData = await fetchSheet(SHEET_ID_SHORT, "Price_short!A2:E");
-            let longData = await fetchSheet(SHEET_ID_LONG, "Price!A2:D");
+            let shortData = await fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:E");
+            let longData = await fetchSheet(SHEET_ID_LONG, "TDSheet!A2:D");
 
             if (!shortData.length || !longData.length) {
                 document.getElementById("catalog").innerText = "Ошибка загрузки данных!";
