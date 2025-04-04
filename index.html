@@ -46,25 +46,36 @@
             let shortMap = {};
             shortData.forEach(row => {
                 let [article, size, price] = row;
-                shortMap[article] = { size, price };
+                if (!shortMap[article]) {
+                    shortMap[article] = { sizes: [], price };
+                }
+                shortMap[article].sizes.push(size);
             });
 
-            let catalogHTML = longData.map(row => {
+            let catalogMap = {};
+            longData.forEach(row => {
                 let [article, name, type, brand, photo] = row;
-                let { size, price } = shortMap[article] || { size: "Нет данных", price: "Нет данных" };
+                if (type !== "Взуття") return;
+                
+                let { sizes, price } = shortMap[article] || { sizes: ["Нет данных"], price: "Нет данных" };
+                let key = `${name}-${brand}-${type}`;
+                
+                if (!catalogMap[key]) {
+                    catalogMap[key] = { name, brand, type, photo, sizes: new Set(), price };
+                }
+                sizes.forEach(size => catalogMap[key].sizes.add(size));
+            });
 
-                return `
-                    <div class="item">
-                        <img src="${photo}" alt="${name}">
-                        <h3>${name || "Без названия"}</h3>
-                        <p><strong>Артикул:</strong> ${article}</p>
-                        <p><strong>Размеры:</strong> ${size}</p>
-                        <p><strong>Цена:</strong> ${price}</p>
-                        <p><strong>Бренд:</strong> ${brand || "Не указан"}</p>
-                        <p><strong>Тип:</strong> ${type || "Не указан"}</p>
-                    </div>
-                `;
-            }).join("");
+            let catalogHTML = Object.values(catalogMap).map(item => `
+                <div class="item">
+                    <img src="${item.photo}" alt="${item.name}">
+                    <h3>${item.name}</h3>
+                    <p><strong>Бренд:</strong> ${item.brand || "Не указан"}</p>
+                    <p><strong>Тип:</strong> ${item.type || "Не указан"}</p>
+                    <p><strong>Размеры:</strong> ${[...item.sizes].join(", ")}</p>
+                    <p><strong>Цена:</strong> ${item.price}</p>
+                </div>
+            `).join("");
 
             document.getElementById("catalog").innerHTML = catalogHTML;
         }
