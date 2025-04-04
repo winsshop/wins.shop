@@ -1,102 +1,63 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Каталог кроссовок</title>
-  <style>
-    body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
-    h1 { text-align: center; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-    .card { background: white; padding: 16px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    .card img { width: 100%; border-radius: 12px; margin-bottom: 10px; }
-    .title { font-weight: bold; font-size: 18px; margin-bottom: 8px; }
-    .details { font-size: 14px; line-height: 1.4; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Каталог кроссовок</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        #catalog { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-top: 20px; }
+        .item { border: 1px solid #ccc; padding: 10px; width: 200px; }
+    </style>
 </head>
 <body>
-  <h1>Каталог кроссовок</h1>
-  <div class="grid" id="catalog"></div>
+    <h1>Каталог кроссовок</h1>
+    <div id="catalog">Загрузка...</div>
 
-  <script>
-    console.log("Скрипт загружен!");
+    <script>
+        const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ"; // 🔥 ВСТАВЬ СВОЙ API-ключ!
+        const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
+        const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
 
-    const apiKey = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
-    const longSheetId = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
-    const shortSheetId = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
-    const longSheetRange = "Price!A2:D";
-    const shortSheetRange = "Price_short!A2:E";
+        async function fetchSheet(sheetId, range) {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${API_KEY}`;
+            console.log("📡 Запрос к Google Sheets:", url);
 
-    async function fetchSheet(sheetId, range) {
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${apiKey}`;
-      console.log(`📡 Запрос к Google Sheets: ${url}`);
-
-      try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`Ошибка ${res.status}: ${await res.text()}`);
-        const data = await res.json();
-        console.log(`✅ Данные получены (${range}):`, data);
-        return data.values || [];
-      } catch (error) {
-        console.error(`❌ Ошибка загрузки Google Sheets (${range}):`, error);
-        return [];
-      }
-    }
-
-    async function loadCatalog() {
-      console.log("🚀 Начинаем загрузку каталога...");
-
-      const longData = await fetchSheet(longSheetId, longSheetRange);
-      const shortData = await fetchSheet(shortSheetId, shortSheetRange);
-      
-      if (!longData.length || !shortData.length) {
-        console.error("❌ Данные из таблиц пустые или не загружены!");
-        return;
-      }
-
-      const availabilityMap = {};
-      shortData.forEach(([article, size, price, stock, quantity]) => {
-        if (!availabilityMap[article]) availabilityMap[article] = [];
-        availabilityMap[article].push({ size, price, stock: quantity });
-      });
-
-      const products = {};
-      longData.forEach(([article, title, sizes, category]) => {
-        if (category.trim() !== "Взуття") return;
-        if (!products[article]) {
-          products[article] = { title, article, sizes: new Set(), stockInfo: [] };
+            try {
+                let response = await fetch(url);
+                let data = await response.json();
+                if (data.error) throw new Error(data.error.message);
+                return data.values || [];
+            } catch (error) {
+                console.error(`❌ Ошибка загрузки (${range}):`, error);
+                return [];
+            }
         }
-        sizes.split(',').forEach(size => products[article].sizes.add(size));
-      });
 
-      Object.keys(products).forEach(article => {
-        if (availabilityMap[article]) {
-          products[article].stockInfo = availabilityMap[article];
+        async function loadCatalog() {
+            console.log("🚀 Начинаем загрузку каталога...");
+            let shortData = await fetchSheet(SHEET_ID_SHORT, "Price_short!A2:E");
+            let longData = await fetchSheet(SHEET_ID_LONG, "Price!A2:D");
+
+            if (!shortData.length || !longData.length) {
+                document.getElementById("catalog").innerText = "Ошибка загрузки данных!";
+                console.error("❌ Данные не загружены!");
+                return;
+            }
+
+            let catalogHTML = shortData.map(row => `
+                <div class="item">
+                    <h3>${row[0] || "Без названия"}</h3>
+                    <p>Цена: ${row[1] || "Нет данных"}</p>
+                    <p>Размеры: ${row[2] || "Нет данных"}</p>
+                    <p>Ссылка: <a href="${row[3]}" target="_blank">Купить</a></p>
+                </div>
+            `).join("");
+
+            document.getElementById("catalog").innerHTML = catalogHTML;
         }
-      });
 
-      const container = document.getElementById("catalog");
-      container.innerHTML = "";
-
-      Object.values(products).forEach(({ title, article, sizes, stockInfo }) => {
-        const div = document.createElement("div");
-        div.className = "card";
-        div.innerHTML = `
-          <div class="title">${title}</div>
-          <div class="details">
-            <b>Артикул:</b> ${article}<br>
-            <b>Размеры:</b> ${[...sizes].join(', ')}<br>
-            <b>Наличие:</b><br>
-            ${stockInfo.length > 0 ? stockInfo.map(s => `📏 ${s.size} — ${s.price}₴ (${s.stock})`).join("<br>") : "Нет в наличии"}
-          </div>
-        `;
-        container.appendChild(div);
-      });
-
-      console.log("✅ Каталог успешно загружен.");
-    }
-
-    loadCatalog();
-  </script>
+        loadCatalog();
+    </script>
 </body>
 </html>
