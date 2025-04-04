@@ -22,12 +22,14 @@
     const apiKey = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
     const longSheetId = "1UySe27uevjq_g2XDy1aCiUYr6JVZRiw3j3UZ97dvTBM";
     const shortSheetId = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
-    const longSheetRange = "Кроссовки!A2:D";
-    const shortSheetRange = "Лист1!A2:E"; // Проверь название листа!
+    
+    // Правильное название листа!
+    const longSheetRange = "'TDSheet'!A2:D";
+    const shortSheetRange = "'TDSheet'!A2:E";
 
     async function fetchSheet(sheetId, range) {
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${apiKey}`;
-      console.log(`Запрос к Google Sheets: ${url}`);
+      console.log(`📡 Запрос к Google Sheets: ${url}`);
 
       try {
         const res = await fetch(url);
@@ -37,10 +39,10 @@
         }
 
         const data = await res.json();
-        console.log(`Успешный ответ от Google Sheets (${range}):`, data);
+        console.log(`✅ Данные получены (${range}):`, data);
         return data.values || [];
       } catch (error) {
-        console.error(`Ошибка загрузки Google Sheets (${range}):`, error);
+        console.error(`❌ Ошибка загрузки Google Sheets (${range}):`, error);
         return [];
       }
     }
@@ -64,16 +66,17 @@
           .map(img => img.src)
           .filter(src => src.includes('/products/') && src.endsWith('.jpg'));
 
-        console.log(`✅ Найдено ${imgs.length} изображений для артикула ${article}`);
+        console.log(`📸 Найдено ${imgs.length} изображений для ${article}`);
         return [...new Set(imgs)].slice(0, 5);
       } catch (error) {
-        console.error(`❌ Ошибка загрузки изображений для артикула ${article}:`, error);
+        console.error(`❌ Ошибка загрузки изображений для ${article}:`, error);
         return [];
       }
     }
 
     async function loadCatalog() {
-      console.log("🚀 Загружаем каталог...");
+      console.log("🚀 Начинаем загрузку каталога...");
+
       const longData = await fetchSheet(longSheetId, longSheetRange);
       const shortData = await fetchSheet(shortSheetId, shortSheetRange);
 
