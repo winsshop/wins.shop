@@ -22,43 +22,58 @@
     const apiKey = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
     const longSheetId = "1UySe27uevjq_g2XDy1aCiUYr6JVZRiw3j3UZ97dvTBM";
     const shortSheetId = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
-    const longSheetRange = "TDSheet!A2:D";
-    const shortSheetRange = "TDSheet!A2:E"; // Проверь точное название листа!
+    const longSheetRange = "Кроссовки!A2:D";
+    const shortSheetRange = "Лист1!A2:E"; // Проверь название листа!
 
     async function fetchSheet(sheetId, range) {
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${apiKey}`;
+      console.log(`Запрос к Google Sheets: ${url}`);
+
       try {
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`Ошибка ${res.status}: ${await res.text()}`);
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`Ошибка ${res.status}: ${errorText}`);
+        }
+
         const data = await res.json();
+        console.log(`Успешный ответ от Google Sheets (${range}):`, data);
         return data.values || [];
       } catch (error) {
-        console.error("Ошибка загрузки Google Sheets:", error);
+        console.error(`Ошибка загрузки Google Sheets (${range}):`, error);
         return [];
       }
     }
 
     async function searchImages(article) {
+      const url = `https://corsproxy.io/?https://7dreamsport.ua/search/?search=${article}`;
+      console.log(`🔍 Поиск изображений по артикулу: ${article}`);
+
       try {
-        const res = await fetch(`https://corsproxy.io/?https://7dreamsport.ua/search/?search=${article}`);
-        if (!res.ok) throw new Error(`Ошибка ${res.status}: ${await res.text()}`);
-        
+        const res = await fetch(url);
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`Ошибка ${res.status}: ${errorText}`);
+        }
+
         const html = await res.text();
         const div = document.createElement('div');
         div.innerHTML = html;
-        
+
         const imgs = [...div.querySelectorAll('img')]
           .map(img => img.src)
           .filter(src => src.includes('/products/') && src.endsWith('.jpg'));
-        
+
+        console.log(`✅ Найдено ${imgs.length} изображений для артикула ${article}`);
         return [...new Set(imgs)].slice(0, 5);
       } catch (error) {
-        console.error("Ошибка загрузки изображений:", error);
-        return []; // Если ошибка, не загружаем картинки
+        console.error(`❌ Ошибка загрузки изображений для артикула ${article}:`, error);
+        return [];
       }
     }
 
     async function loadCatalog() {
+      console.log("🚀 Загружаем каталог...");
       const longData = await fetchSheet(longSheetId, longSheetRange);
       const shortData = await fetchSheet(shortSheetId, shortSheetRange);
 
@@ -110,6 +125,8 @@
 
         container.appendChild(div);
       }
+
+      console.log("✅ Каталог успешно загружен.");
     }
 
     loadCatalog();
