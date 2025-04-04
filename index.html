@@ -22,8 +22,8 @@
     const apiKey = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
     const longSheetId = "1UySe27uevjq_g2XDy1aCiUYr6JVZRiw3j3UZ97dvTBM";
     const shortSheetId = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
-    const longSheetRange = "TDSheet!A2:C";
-    const shortSheetRange = "TDSheet!A2:D";
+    const longSheetRange = "Кроссовки!A2:D";
+    const shortSheetRange = "Лист1!A2:E";
 
     async function fetchSheet(sheetId, range) {
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${apiKey}`;
@@ -40,7 +40,7 @@
       const imgs = [...div.querySelectorAll('img')]
         .map(img => img.src)
         .filter(src => src.includes('/products/') && src.endsWith('.jpg'));
-      return [...new Set(imgs)].slice(0, 5); // до 5 уникальных фото
+      return [...new Set(imgs)].slice(0, 5);
     }
 
     async function loadCatalog() {
@@ -48,14 +48,29 @@
       const shortData = await fetchSheet(shortSheetId, shortSheetRange);
 
       const availabilityMap = {};
-      shortData.forEach(([article, size, price, stock]) => {
+      shortData.forEach(([article, size, price, stock, quantity]) => {
         if (!availabilityMap[article]) availabilityMap[article] = [];
-        availabilityMap[article].push({ size, price, stock });
+        availabilityMap[article].push({ size, price, stock: quantity });
+      });
+
+      const products = {};
+      longData.forEach(([article, title, sizes, category]) => {
+        if (category !== "Взуття") return;
+        if (!products[article]) {
+          products[article] = { title, article, sizes: new Set(), stockInfo: [] };
+        }
+        sizes.split(',').forEach(size => products[article].sizes.add(size));
+      });
+
+      Object.keys(products).forEach(article => {
+        if (availabilityMap[article]) {
+          products[article].stockInfo = availabilityMap[article];
+        }
       });
 
       const container = document.getElementById("catalog");
-      for (const [title, article, sizes] of longData) {
-        const stockInfo = availabilityMap[article] || [];
+      for (const article in products) {
+        const { title, sizes, stockInfo } = products[article];
         const imgs = await searchImages(article);
 
         const div = document.createElement("div");
@@ -71,7 +86,7 @@
           <div class="title">${title}</div>
           <div class="details">
             <b>Артикул:</b> ${article}<br>
-            <b>Размеры:</b> ${sizes}<br>
+            <b>Размеры:</b> ${[...sizes].join(', ')}<br>
             <b>Наличие:</b><br>
             ${stockInfo.length > 0 ? stockInfo.map(s => `📏 ${s.size} — ${s.price}₴ (${s.stock})`).join("<br>") : "Нет в наличии"}
           </div>
