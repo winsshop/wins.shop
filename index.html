@@ -16,9 +16,9 @@
     <div id="catalog">Загрузка...</div>
 
     <script>
-        const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ"; // ⛔ НЕ ХРАНИ КЛЮЧ В ОТКРЫТОМ ВИДЕ!
-        const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U"; // Короткая таблица
-        const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs"; // Длинная таблица
+        const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
+        const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
+        const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
 
         async function fetchSheet(sheetId, range) {
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${API_KEY}`;
@@ -35,7 +35,7 @@
 
         async function loadCatalog() {
             console.log("🔄 Загружаем данные...");
-            let shortData = await fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:C"); // Артикул, Цена, Наличие
+            let shortData = await fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:C"); // Артикул, Размеры, Цена
             let longData = await fetchSheet(SHEET_ID_LONG, "TDSheet!A2:E"); // Артикул, Название, Тип, Бренд, Фото
 
             if (!shortData.length || !longData.length) {
@@ -43,26 +43,25 @@
                 return;
             }
 
-            // Преобразуем короткую таблицу в объект { артикул: { цена, наличие } }
             let shortMap = {};
             shortData.forEach(row => {
-                let [article, price, stock] = row;
-                shortMap[article] = { price, stock };
+                let [article, size, price] = row;
+                shortMap[article] = { size, price };
             });
 
-            // Создаем HTML-каталог
             let catalogHTML = longData.map(row => {
                 let [article, name, type, brand, photo] = row;
-                let { price, stock } = shortMap[article] || { price: "Нет данных", stock: "Нет данных" };
+                let { size, price } = shortMap[article] || { size: "Нет данных", price: "Нет данных" };
 
                 return `
                     <div class="item">
                         <img src="${photo}" alt="${name}">
                         <h3>${name || "Без названия"}</h3>
-                        <p><strong>Тип:</strong> ${type || "Не указан"}</p>
-                        <p><strong>Бренд:</strong> ${brand || "Не указан"}</p>
+                        <p><strong>Артикул:</strong> ${article}</p>
+                        <p><strong>Размеры:</strong> ${size}</p>
                         <p><strong>Цена:</strong> ${price}</p>
-                        <p><strong>Наличие:</strong> ${stock}</p>
+                        <p><strong>Бренд:</strong> ${brand || "Не указан"}</p>
+                        <p><strong>Тип:</strong> ${type || "Не указан"}</p>
                     </div>
                 `;
             }).join("");
