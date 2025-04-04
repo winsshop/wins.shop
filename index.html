@@ -12,79 +12,61 @@
     .card img { width: 100%; border-radius: 12px; margin-bottom: 10px; }
     .title { font-weight: bold; font-size: 18px; margin-bottom: 8px; }
     .details { font-size: 14px; line-height: 1.4; }
-    .error { color: red; margin-top: 20px; text-align: center; }
   </style>
 </head>
 <body>
   <h1>Каталог кроссовок</h1>
   <div class="grid" id="catalog"></div>
-  <div class="error" id="error-log"></div>
 
   <script>
-    const apiKey = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ"; // ЗАМЕНИТЕ на ваш реальный API ключ
+    console.log("Скрипт загружен!");
+
+    const apiKey = "YOUR_API_KEY_HERE";
     const longSheetId = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
     const shortSheetId = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
-
-    const longSheetRange = "'TDSheet'!A2:D";
-    const shortSheetRange = "'TDSheet'!A2:E";
-
-    function logError(msg) {
-      document.getElementById('error-log').innerText = msg;
-    }
+    const longSheetRange = "Price!A2:D";
+    const shortSheetRange = "Price_short!A2:E";
 
     async function fetchSheet(sheetId, range) {
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${apiKey}`;
-      try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        return data.values || [];
-      } catch (err) {
-        logError(`❌ Не удалось загрузить таблицу: ${err.message}`);
-        return [];
-      }
-    }
+      console.log(`📡 Запрос к Google Sheets: ${url}`);
 
-    async function searchImages(article) {
-      const url = `https://corsproxy.io/?https://7dreamsport.ua/search/?search=${article}`;
       try {
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const html = await res.text();
-        const div = document.createElement('div');
-        div.innerHTML = html;
-        const imgs = [...div.querySelectorAll('img')]
-          .map(img => img.src)
-          .filter(src => src.includes('/products/') && src.endsWith('.jpg'));
-        return [...new Set(imgs)].slice(0, 3);
-      } catch (err) {
-        console.warn(`⚠️ Изображения не найдены для артикула ${article}`);
+        if (!res.ok) throw new Error(`Ошибка ${res.status}: ${await res.text()}`);
+        const data = await res.json();
+        console.log(`✅ Данные получены (${range}):`, data);
+        return data.values || [];
+      } catch (error) {
+        console.error(`❌ Ошибка загрузки Google Sheets (${range}):`, error);
         return [];
       }
     }
 
     async function loadCatalog() {
+      console.log("🚀 Начинаем загрузку каталога...");
+
       const longData = await fetchSheet(longSheetId, longSheetRange);
       const shortData = await fetchSheet(shortSheetId, shortSheetRange);
-
+      
       if (!longData.length || !shortData.length) {
-        logError("❗ Не удалось загрузить данные. Проверьте API ключ и доступность таблиц.");
+        console.error("❌ Данные из таблиц пустые или не загружены!");
         return;
       }
 
       const availabilityMap = {};
       shortData.forEach(([article, size, price, stock, quantity]) => {
         if (!availabilityMap[article]) availabilityMap[article] = [];
-        availabilityMap[article].push({ size, price, stock, quantity });
+        availabilityMap[article].push({ size, price, stock: quantity });
       });
 
       const products = {};
       longData.forEach(([article, title, sizes, category]) => {
-        if (category.trim().toLowerCase() !== "взуття") return;
+        if (category.trim() !== "Взуття") return;
         if (!products[article]) {
           products[article] = { title, article, sizes: new Set(), stockInfo: [] };
         }
-        if (sizes) sizes.split(',').forEach(size => products[article].sizes.add(size.trim()));
+        sizes.split(',').forEach(size => products[article].sizes.add(size));
       });
 
       Object.keys(products).forEach(article => {
@@ -94,33 +76,24 @@
       });
 
       const container = document.getElementById("catalog");
+      container.innerHTML = "";
 
-      for (const article in products) {
-        const { title, sizes, stockInfo } = products[article];
-        const imgs = await searchImages(article);
-
-        const card = document.createElement("div");
-        card.className = "card";
-
-        imgs.forEach(src => {
-          const img = document.createElement("img");
-          img.src = src;
-          img.onerror = () => img.remove();
-          card.appendChild(img);
-        });
-
-        card.innerHTML += `
+      Object.values(products).forEach(({ title, article, sizes, stockInfo }) => {
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `
           <div class="title">${title}</div>
           <div class="details">
             <b>Артикул:</b> ${article}<br>
-            <b>Розміри:</b> ${[...sizes].join(', ')}<br>
-            <b>Наявність:</b><br>
-            ${stockInfo.length ? stockInfo.map(s => `📏 ${s.size} — ${s.price}₴ (${s.quantity || s.stock})`).join("<br>") : "Немає в наявності"}
+            <b>Размеры:</b> ${[...sizes].join(', ')}<br>
+            <b>Наличие:</b><br>
+            ${stockInfo.length > 0 ? stockInfo.map(s => `📏 ${s.size} — ${s.price}₴ (${s.stock})`).join("<br>") : "Нет в наличии"}
           </div>
         `;
+        container.appendChild(div);
+      });
 
-        container.appendChild(card);
-      }
+      console.log("✅ Каталог успешно загружен.");
     }
 
     loadCatalog();
