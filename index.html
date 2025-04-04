@@ -1,91 +1,87 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="uk">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Каталог кроссовок</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; }
-        .product { border: 1px solid #ddd; padding: 10px; margin: 10px; display: inline-block; width: 300px; }
-        .product img { width: 100%; height: auto; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Каталог кроссовок</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+    h1 { text-align: center; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+    .card { background: white; padding: 16px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .card img { width: 100%; border-radius: 12px; margin-bottom: 10px; }
+    .title { font-weight: bold; font-size: 18px; margin-bottom: 8px; }
+    .details { font-size: 14px; line-height: 1.4; }
+  </style>
 </head>
 <body>
-    <h1>Каталог кроссовок</h1>
-    <div id="products"></div>
-    
-    <script>
-        async function fetchData() {
-            const sheetId = "1UySe27uevjq_g2XDy1aCiUYr6JVZRiw3j3UZ97dvTBM"; // Длинная таблица
-            const sheetIdShort = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U"; // Короткая таблица
-            const apiKey = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
-            
-            const longUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/Sheet1?key=${apiKey}`;
-            const shortUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetIdShort}/values/Sheet1?key=${apiKey}`;
-            
-            const longData = await fetch(longUrl).then(res => res.json());
-            const shortData = await fetch(shortUrl).then(res => res.json());
-            
-            const products = processData(longData.values, shortData.values);
-            displayProducts(products);
-        }
-        
-        function processData(longData, shortData) {
-            const products = {};
-            
-            longData.slice(1).forEach(row => {
-                const [name, article, sizes] = row;
-                products[article] = { name, article, sizes, availability: [] };
-            });
-            
-            shortData.slice(1).forEach(row => {
-                const [article, size, price, stock] = row;
-                if (products[article]) {
-                    products[article].availability.push({ size, price, stock });
-                }
-            });
-            
-            return Object.values(products);
-        }
-        
-        async function getSneakerImages(article) {
-            const searchUrl = `https://7dreamsport.ua/search?query=${article}`;
-            try {
-                const response = await fetch(searchUrl);
-                const text = await response.text();
-                const imageUrls = [...text.matchAll(/<img src=\"(https:\/\/7dreamsport\.ua\/uploads\/products\/.*?)\"/g)]
-                                    .map(match => match[1]);
-                return imageUrls.length ? imageUrls : ["placeholder.jpg"];
-            } catch (error) {
-                console.error("Ошибка загрузки изображений: ", error);
-                return ["placeholder.jpg"];
-            }
-        }
-        
-        async function displayProducts(products) {
-            const container = document.getElementById("products");
-            container.innerHTML = "";
-            
-            for (const product of products) {
-                const imageUrls = await getSneakerImages(product.article);
-                
-                const div = document.createElement("div");
-                div.className = "product";
-                div.innerHTML = `
-                    <h3>${product.name}</h3>
-                    ${imageUrls.map(url => `<img src="${url}" alt="${product.name}">`).join('')}
-                    <p>Артикул: ${product.article}</p>
-                    <p>Размеры: ${product.sizes}</p>
-                    <p>Наличие:</p>
-                    <ul>
-                        ${product.availability.map(a => `<li>${a.size} - ${a.price} грн (${a.stock})</li>`).join('')}
-                    </ul>
-                `;
-                container.appendChild(div);
-            }
-        }
-        
-        fetchData();
-    </script>
+  <h1>Каталог кроссовок</h1>
+  <div class="grid" id="catalog"></div>
+
+  <script>
+    const apiKey = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
+    const longSheetId = "1UySe27uevjq_g2XDy1aCiUYr6JVZRiw3j3UZ97dvTBM";
+    const shortSheetId = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
+    const longSheetRange = "Кроссовки!A2:C";
+    const shortSheetRange = "Лист1!A2:D";
+
+    async function fetchSheet(sheetId, range) {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${apiKey}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      return data.values || [];
+    }
+
+    async function searchImages(article) {
+      const res = await fetch(`https://corsproxy.io/?https://7dreamsport.ua/search/?search=${article}`);
+      const html = await res.text();
+      const div = document.createElement('div');
+      div.innerHTML = html;
+      const imgs = [...div.querySelectorAll('img')]
+        .map(img => img.src)
+        .filter(src => src.includes('/products/') && src.endsWith('.jpg'));
+      return [...new Set(imgs)].slice(0, 5); // до 5 уникальных фото
+    }
+
+    async function loadCatalog() {
+      const longData = await fetchSheet(longSheetId, longSheetRange);
+      const shortData = await fetchSheet(shortSheetId, shortSheetRange);
+
+      const availabilityMap = {};
+      shortData.forEach(([article, size, price, stock]) => {
+        if (!availabilityMap[article]) availabilityMap[article] = [];
+        availabilityMap[article].push({ size, price, stock });
+      });
+
+      const container = document.getElementById("catalog");
+      for (const [title, article, sizes] of longData) {
+        const stockInfo = availabilityMap[article] || [];
+        const imgs = await searchImages(article);
+
+        const div = document.createElement("div");
+        div.className = "card";
+
+        imgs.forEach(src => {
+          const img = document.createElement("img");
+          img.src = src;
+          div.appendChild(img);
+        });
+
+        div.innerHTML += `
+          <div class="title">${title}</div>
+          <div class="details">
+            <b>Артикул:</b> ${article}<br>
+            <b>Размеры:</b> ${sizes}<br>
+            <b>Наличие:</b><br>
+            ${stockInfo.length > 0 ? stockInfo.map(s => `📏 ${s.size} — ${s.price}₴ (${s.stock})`).join("<br>") : "Нет в наличии"}
+          </div>
+        `;
+
+        container.appendChild(div);
+      }
+    }
+
+    loadCatalog();
+  </script>
 </body>
 </html>
