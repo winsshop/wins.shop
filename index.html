@@ -22,8 +22,8 @@
     const apiKey = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
     const longSheetId = "1UySe27uevjq_g2XDy1aCiUYr6JVZRiw3j3UZ97dvTBM";
     const shortSheetId = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
-    const longSheetRange = "Кроссовки!A2:C";
-    const shortSheetRange = "Лист1!A2:D";
+    const longSheetRange = "TDSheet!A2:C";
+    const shortSheetRange = "TDSheet!A2:D";
 
     async function fetchSheet(sheetId, range) {
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${apiKey}`;
