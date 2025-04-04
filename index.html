@@ -55,7 +55,7 @@
 
       const products = {};
       longData.forEach(([article, title, sizes, category]) => {
-        if (category !== "Взуття") return;
+        if (category.trim() !== "Взуття") return; // Фильтруем только обувь
         if (!products[article]) {
           products[article] = { title, article, sizes: new Set(), stockInfo: [] };
         }
