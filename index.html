@@ -22,25 +22,40 @@
     const apiKey = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
     const longSheetId = "1UySe27uevjq_g2XDy1aCiUYr6JVZRiw3j3UZ97dvTBM";
     const shortSheetId = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
-    const longSheetRange = "Кроссовки!A2:D";
-    const shortSheetRange = "Лист1!A2:E";
+    const longSheetRange = "TDSheet!A2:D";
+    const shortSheetRange = "TDSheet!A2:E"; // Проверь точное название листа!
 
     async function fetchSheet(sheetId, range) {
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${apiKey}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      return data.values || [];
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Ошибка ${res.status}: ${await res.text()}`);
+        const data = await res.json();
+        return data.values || [];
+      } catch (error) {
+        console.error("Ошибка загрузки Google Sheets:", error);
+        return [];
+      }
     }
 
     async function searchImages(article) {
-      const res = await fetch(`https://corsproxy.io/?https://7dreamsport.ua/search/?search=${article}`);
-      const html = await res.text();
-      const div = document.createElement('div');
-      div.innerHTML = html;
-      const imgs = [...div.querySelectorAll('img')]
-        .map(img => img.src)
-        .filter(src => src.includes('/products/') && src.endsWith('.jpg'));
-      return [...new Set(imgs)].slice(0, 5);
+      try {
+        const res = await fetch(`https://corsproxy.io/?https://7dreamsport.ua/search/?search=${article}`);
+        if (!res.ok) throw new Error(`Ошибка ${res.status}: ${await res.text()}`);
+        
+        const html = await res.text();
+        const div = document.createElement('div');
+        div.innerHTML = html;
+        
+        const imgs = [...div.querySelectorAll('img')]
+          .map(img => img.src)
+          .filter(src => src.includes('/products/') && src.endsWith('.jpg'));
+        
+        return [...new Set(imgs)].slice(0, 5);
+      } catch (error) {
+        console.error("Ошибка загрузки изображений:", error);
+        return []; // Если ошибка, не загружаем картинки
+      }
     }
 
     async function loadCatalog() {
@@ -79,6 +94,7 @@
         imgs.forEach(src => {
           const img = document.createElement("img");
           img.src = src;
+          img.onerror = () => img.style.display = "none"; // Убираем сломанные картинки
           div.appendChild(img);
         });
 
