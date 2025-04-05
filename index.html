@@ -23,7 +23,7 @@
     <div id="catalog">
         <div class="loading">🔄 Загружаем товары...</div>
     </div>
-    <div id="debug" class="debug-info" style="display: none;"></div>
+    <div id="debug" class="debug-info"></div>
 
     <script>
         const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
@@ -33,18 +33,18 @@
         async function fetchSheet(sheetId, range) {
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
             try {
-                console.log(`Загрузка: ${url}`);
+                console.log(`Fetching: ${url}`);
                 const response = await fetch(url);
                 if (!response.ok) {
                     const errorData = await response.json();
-                    console.error('Детали ошибки:', errorData);
+                    console.error('Error details:', errorData);
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
-                console.log(`Получены данные:`, data);
+                console.log('Received data:', data);
                 return data.values || [];
             } catch (error) {
-                console.error(`Ошибка загрузки (${range}):`, error);
+                console.error(`Error loading (${range}):`, error);
                 throw error;
             }
         }
@@ -55,8 +55,9 @@
         }
 
         function getUniqueSizes(sizesArray) {
-            const unique = [...new Set(sizesArray)];
-            return unique.sort((a, b) => a - b);
+            if (!sizesArray) return ["Нет данных"];
+            const unique = [...new Set(sizesArray.filter(Boolean))];
+            return unique.length ? unique.sort((a, b) => a - b) : ["Нет данных"];
         }
 
         async function loadCatalog() {
@@ -64,14 +65,12 @@
             const debugElement = document.getElementById("debug");
             
             try {
-                // Включаем отладочную информацию
-                debugElement.style.display = 'block';
                 debugElement.innerHTML = '<strong>Отладочная информация:</strong><br>';
 
-                // Параллельная загрузка данных
+                // Загружаем данные из обеих таблиц
                 const [shortData, longData] = await Promise.all([
-                    fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:C"),
-                    fetchSheet(SHEET_ID_LONG, "TDSheet!A2:E")
+                    fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:Z"),
+                    fetchSheet(SHEET_ID_LONG, "TDSheet!A2:Z")
                 ]);
 
                 debugElement.innerHTML += `Короткая таблица: ${shortData.length} строк<br>`;
@@ -81,45 +80,51 @@
                     throw new Error("Получены пустые данные из таблиц");
                 }
 
-                // Создаем карту артикулов
+                // Создаем карту артикулов из короткой таблицы
                 const shortMap = {};
                 shortData.forEach(row => {
-                    const [article, size, price] = row;
+                    const article = row[0]; // Столбец A (артикул)
                     if (article) {
-                        if (!shortMap[article]) shortMap[article] = { sizes: [], price };
-                        if (size) shortMap[article].sizes.push(size);
+                        shortMap[article] = {
+                            sizes: row.slice(1, 10).filter(Boolean), // Столбцы B-J (размеры)
+                            price: row[10] || "Нет данных" // Столбец K (цена)
+                        };
                     }
                 });
 
                 debugElement.innerHTML += `Найдено артикулов: ${Object.keys(shortMap).length}<br>`;
 
-                // Формируем каталог
+                // Формируем каталог из длинной таблицы
                 const catalogItems = [];
                 longData.forEach(row => {
-                    const [article, name, type, brand, photo] = row;
+                    const article = row[0]; // Столбец A (артикул)
+                    const name = row[1];     // Столбец B (название)
+                    const type = row[2];     // Столбец C (тип)
+                    const brand = row[3];    // Столбец D (бренд)
+                    const photo = row[4];    // Столбец E (фото)
+
                     if (!article || !name) return;
 
                     // Если тип указан и не "Взуття" - пропускаем
                     if (type && type !== "Взуття") return;
 
-                    const { sizes = [], price } = shortMap[article] || {};
-                    const uniqueSizes = getUniqueSizes(sizes);
-
+                    const itemData = shortMap[article] || {};
+                    
                     catalogItems.push({
-                        name: name.trim() || "Без названия",
+                        name: name.trim(),
                         brand: (brand || "").trim() || "Не указан",
                         type: (type || "").trim() || "Не указан",
                         photo: (photo || "").trim() || "https://via.placeholder.com/220x150?text=Нет+фото",
-                        sizes: uniqueSizes.length ? uniqueSizes : ["Нет данных"],
-                        price: formatPrice(price)
+                        sizes: getUniqueSizes(itemData.sizes),
+                        price: formatPrice(itemData.price)
                     });
                 });
 
                 debugElement.innerHTML += `Товаров в каталоге: ${catalogItems.length}<br>`;
 
-                // Рендерим каталог
-                catalogElement.innerHTML = catalogItems.length 
-                    ? catalogItems.map(item => `
+                // Отображаем каталог
+                if (catalogItems.length) {
+                    catalogElement.innerHTML = catalogItems.map(item => `
                         <div class="item">
                             <img src="${item.photo}" alt="${item.name}" 
                                  onerror="this.src='https://via.placeholder.com/220x150?text=Нет+фото'">
@@ -129,8 +134,10 @@
                             <p><strong>Размеры:</strong> ${item.sizes.join(", ")}</p>
                             <p><strong>Цена:</strong> ${item.price}</p>
                         </div>
-                    `).join("")
-                    : '<div class="error">😐 Нет данных для отображения.</div>';
+                    `).join("");
+                } else {
+                    catalogElement.innerHTML = '<div class="error">😐 Нет данных для отображения.</div>';
+                }
 
             } catch (error) {
                 console.error("Ошибка загрузки каталога:", error);
@@ -140,17 +147,22 @@
                     <div class="error">
                         ❌ Ошибка загрузки данных! Проверьте:
                         <ul style="text-align: left;">
-                            <li>Название листа в обеих таблицах должно быть точно "TDSheet"</li>
-                            <li>API ключ должен иметь доступ к этим таблицам</li>
-                            <li>Откройте консоль разработчика (F12) для подробностей</li>
+                            <li>Название листа в обеих таблицах должно быть "TDSheet"</li>
+                            <li>API ключ должен иметь доступ к таблицам</li>
+                            <li>Данные должны быть в столбцах A-Z</li>
+                            <li>Проверьте консоль (F12) для подробной информации</li>
                         </ul>
                     </div>
                 `;
             }
         }
 
-        // Загружаем каталог при загрузке страницы
-        document.addEventListener('DOMContentLoaded', loadCatalog);
+        // Запускаем загрузку при полной загрузке DOM
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadCatalog);
+        } else {
+            loadCatalog();
+        }
     </script>
 </body>
 </html>
