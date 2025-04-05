@@ -28,7 +28,7 @@
         const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
         const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
 
-        async function fetchSheet(sheetId, sheetGid, range) {
+        async function fetchSheet(sheetId, range) {
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
             try {
                 const response = await fetch(url);
@@ -55,10 +55,10 @@
             const catalogElement = document.getElementById("catalog");
             
             try {
-                // Параллельная загрузка данных с правильными ID листов
+                // Параллельная загрузка данных
                 const [shortData, longData] = await Promise.all([
-                    fetchSheet(SHEET_ID_SHORT, "1151194139", "'1151194139'!A2:C"), // Короткая таблица
-                    fetchSheet(SHEET_ID_LONG, "156165298", "'156165298'!A2:E")    // Длинная таблица
+                    fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:C"),
+                    fetchSheet(SHEET_ID_LONG, "TDSheet!A2:E")
                 ]);
 
                 if (!shortData.length || !longData.length) {
@@ -76,7 +76,7 @@
                 // Формируем каталог
                 const catalogItems = longData.reduce((acc, row) => {
                     const [article, name, type, brand, photo] = row;
-                    if (!article || !name || type !== "Взуття") return acc;
+                    if (!article || !name || (type && type !== "Взуття")) return acc;
 
                     const { sizes = [], price } = shortMap[article] || {};
                     const uniqueSizes = getUniqueSizes(sizes);
@@ -114,9 +114,9 @@
                     <div class="error">
                         ❌ Ошибка загрузки данных! Проверьте:
                         <ul style="text-align: left;">
-                            <li>Доступ к таблицам</li>
-                            <li>Интернет-соединение</li>
-                            <li>Консоль разработчика для подробностей</li>
+                            <li>Название листа в обеих таблицах должно быть точно "TDSheet"</li>
+                            <li>API ключ должен иметь доступ к этим таблицам</li>
+                            <li>Данные должны быть в диапазонах A2:C и A2:E</li>
                         </ul>
                         <p style="font-size: 12px;">${error.message}</p>
                     </div>
