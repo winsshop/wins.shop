@@ -4,16 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Каталог кроссовок</title>
+    <link rel="icon" href="data:,">
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; }
-        #catalog { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-top: 20px; }
-        .item { border: 1px solid #ccc; padding: 10px; width: 220px; }
-        .item img { width: 100%; height: auto; }
+        body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background: #f9f9f9; }
+        h1 { margin-bottom: 20px; }
+        #catalog { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+        .item { background: #fff; border: 1px solid #ccc; padding: 15px; width: 220px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 8px; }
+        .item img { width: 100%; height: auto; border-radius: 4px; min-height: 150px; object-fit: cover; }
+        .item h3 { margin: 10px 0 5px; }
+        .item p { margin: 4px 0; font-size: 14px; }
+        .loading { font-size: 18px; padding: 20px; }
+        .error { color: red; font-size: 18px; padding: 20px; }
     </style>
 </head>
 <body>
     <h1>Каталог кроссовок</h1>
-    <div id="catalog">Загрузка...</div>
+    <div id="catalog">
+        <div class="loading">🔄 Загружаем товары...</div>
+    </div>
 
     <script>
         const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
@@ -23,66 +31,94 @@
         async function fetchSheet(sheetId, range) {
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${API_KEY}`;
             try {
-                let response = await fetch(url);
-                let data = await response.json();
-                if (data.error) throw new Error(data.error.message);
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
                 return data.values || [];
             } catch (error) {
                 console.error(`Ошибка загрузки (${range}):`, error);
-                return [];
+                throw error;
             }
+        }
+
+        function formatPrice(price) {
+            if (!price || isNaN(parseFloat(price))) return "Цена не указана";
+            return `${parseFloat(price).toFixed(2)} ₴`;
+        }
+
+        function getUniqueSizes(sizesArray) {
+            const unique = [...new Set(sizesArray)];
+            return unique.sort((a, b) => a - b);
         }
 
         async function loadCatalog() {
-            console.log("🔄 Загружаем данные...");
-            let shortData = await fetchSheet(SHEET_ID_SHORT, "Лист1!A2:C"); // Артикул, Размеры, Цена
-            let longData = await fetchSheet(SHEET_ID_LONG, "Лист1!A2:W");   // Артикул, Название, Тип, Бренд, Фото
+            const catalogElement = document.getElementById("catalog");
+            
+            try {
+                // Параллельная загрузка данных
+                const [shortData, longData] = await Promise.all([
+                    fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:C"),
+                    fetchSheet(SHEET_ID_LONG, "TDSheet!A2:E")
+                ]);
 
-            if (!shortData.length || !longData.length) {
-                document.getElementById("catalog").innerText = "😐 Нет данных для отображения.";
-                return;
-            }
-
-            let shortMap = {};
-            shortData.forEach(row => {
-                let [article, size, price] = row;
-                if (!shortMap[article]) {
-                    shortMap[article] = { sizes: [], price };
+                if (!shortData.length || !longData.length) {
+                    throw new Error("Получены пустые данные из таблиц");
                 }
-                shortMap[article].sizes.push(size);
-            });
 
-            let catalogMap = {};
-            longData.forEach(row => {
-                let [article, name, , , , , , , , , , , , , , brand, type, , , , photo] = row;
-                if (type !== "Взуття") return;
+                // Создаем карту артикулов с размерами и ценами
+                const shortMap = shortData.reduce((acc, [article, size, price]) => {
+                    if (!acc[article]) acc[article] = { sizes: [], price };
+                    if (size) acc[article].sizes.push(size);
+                    return acc;
+                }, {});
 
-                let { sizes, price } = shortMap[article] || { sizes: ["Нет данных"], price: "Нет данных" };
-                let key = `${name}-${brand}-${type}`;
+                // Формируем каталог
+                const catalogItems = longData.reduce((acc, [article, name, type, brand, photo]) => {
+                    if (type !== "Взуття") return acc;
 
-                if (!catalogMap[key]) {
-                    catalogMap[key] = { name, brand, type, photo, sizes: new Set(), price };
-                }
-                sizes.forEach(size => catalogMap[key].sizes.add(size));
-            });
+                    const { sizes = [], price } = shortMap[article] || {};
+                    const uniqueSizes = getUniqueSizes(sizes);
 
-            let catalogHTML = Object.values(catalogMap).map(item => {
-                return `
-                    <div class="item">
-                        <img src="${item.photo}" alt="${item.name}">
-                        <h3>${item.name}</h3>
-                        <p><strong>Бренд:</strong> ${item.brand || "Не указан"}</p>
-                        <p><strong>Тип:</strong> ${item.type || "Не указан"}</p>
-                        <p><strong>Размеры:</strong> ${[...item.sizes].join(", ")}</p>
-                        <p><strong>Цена:</strong> ${item.price}</p>
+                    acc.push({
+                        name: name || "Без названия",
+                        brand: brand || "Не указан",
+                        type: type || "Не указан",
+                        photo: photo || "https://via.placeholder.com/220x150?text=Нет+фото",
+                        sizes: uniqueSizes.length ? uniqueSizes : ["Нет данных"],
+                        price: formatPrice(price)
+                    });
+
+                    return acc;
+                }, []);
+
+                // Рендерим каталог
+                catalogElement.innerHTML = catalogItems.length 
+                    ? catalogItems.map(item => `
+                        <div class="item">
+                            <img src="${item.photo}" alt="${item.name}" 
+                                 onerror="this.src='https://via.placeholder.com/220x150?text=Нет+фото'">
+                            <h3>${item.name}</h3>
+                            <p><strong>Бренд:</strong> ${item.brand}</p>
+                            <p><strong>Тип:</strong> ${item.type}</p>
+                            <p><strong>Размеры:</strong> ${item.sizes.join(", ")}</p>
+                            <p><strong>Цена:</strong> ${item.price}</p>
+                        </div>
+                    `).join("")
+                    : '<div class="error">😐 Нет данных для отображения.</div>';
+
+            } catch (error) {
+                console.error("Ошибка загрузки каталога:", error);
+                catalogElement.innerHTML = `
+                    <div class="error">
+                        ❌ Ошибка загрузки данных! Попробуйте обновить страницу позже.
+                        <p style="font-size: 12px;">${error.message}</p>
                     </div>
                 `;
-            }).join("");
-
-            document.getElementById("catalog").innerHTML = catalogHTML;
+            }
         }
 
-        loadCatalog();
+        // Загружаем каталог при загрузке страницы
+        document.addEventListener('DOMContentLoaded', loadCatalog);
     </script>
 </body>
 </html>
