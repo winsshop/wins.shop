@@ -29,7 +29,7 @@
         const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
 
         async function fetchSheet(sheetId, range) {
-            const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${API_KEY}`;
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
             try {
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -66,14 +66,16 @@
                 }
 
                 // Создаем карту артикулов с размерами и ценами
-                const shortMap = shortData.reduce((acc, [article, size, price]) => {
+                const shortMap = shortData.reduce((acc, row) => {
+                    const [article, size, price] = row;
                     if (!acc[article]) acc[article] = { sizes: [], price };
                     if (size) acc[article].sizes.push(size);
                     return acc;
                 }, {});
 
                 // Формируем каталог
-                const catalogItems = longData.reduce((acc, [article, name, type, brand, photo]) => {
+                const catalogItems = longData.reduce((acc, row) => {
+                    const [article, name, type, brand, photo] = row;
                     if (type !== "Взуття") return acc;
 
                     const { sizes = [], price } = shortMap[article] || {};
@@ -110,7 +112,12 @@
                 console.error("Ошибка загрузки каталога:", error);
                 catalogElement.innerHTML = `
                     <div class="error">
-                        ❌ Ошибка загрузки данных! Попробуйте обновить страницу позже.
+                        ❌ Ошибка загрузки данных! Проверьте:
+                        <ul style="text-align: left;">
+                            <li>Название листа в таблицах (должно быть 'TDSheet')</li>
+                            <li>Доступ к таблицам</li>
+                            <li>Интернет-соединение</li>
+                        </ul>
                         <p style="font-size: 12px;">${error.message}</p>
                     </div>
                 `;
