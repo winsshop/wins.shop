@@ -16,6 +16,9 @@
         .loading { font-size: 18px; padding: 20px; }
         .error { color: red; font-size: 18px; padding: 20px; }
         .debug-info { font-size: 12px; text-align: left; margin-top: 20px; padding: 10px; background: #eee; border-radius: 4px; }
+        .price { font-weight: bold; color: #e53935; }
+        .sizes { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+        .size { padding: 2px 5px; background: #f0f0f0; border-radius: 3px; }
     </style>
 </head>
 <body>
@@ -33,7 +36,6 @@
         async function fetchSheet(sheetId, range) {
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
             try {
-                console.log(`Fetching: ${url}`);
                 const response = await fetch(url);
                 if (!response.ok) {
                     const errorData = await response.json();
@@ -41,7 +43,6 @@
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
-                console.log('Received data:', data);
                 return data.values || [];
             } catch (error) {
                 console.error(`Error loading (${range}):`, error);
@@ -50,14 +51,21 @@
         }
 
         function formatPrice(price) {
-            if (!price || isNaN(parseFloat(price))) return "Цена не указана";
-            return `${parseFloat(price).toFixed(2)} ₴`;
+            if (!price) return "Цена не указана";
+            // Удаляем пробелы между цифрами и приводим к числу
+            const numericPrice = parseFloat(price.toString().replace(/\s/g, '').replace(',', '.'));
+            return isNaN(numericPrice) ? "Цена не указана" : `${numericPrice.toLocaleString('ru-RU')} ₴`;
         }
 
-        function getUniqueSizes(sizesArray) {
-            if (!sizesArray) return ["Нет данных"];
-            const unique = [...new Set(sizesArray.filter(Boolean))];
-            return unique.length ? unique.sort((a, b) => a - b) : ["Нет данных"];
+        function extractFirstPhoto(photoString) {
+            if (!photoString) return "https://via.placeholder.com/220x150?text=Нет+фото";
+            const photos = photoString.split(';').filter(url => url.trim().length > 0);
+            return photos.length > 0 ? photos[0].replace(/"/g, '').trim() : "https://via.placeholder.com/220x150?text=Нет+фото";
+        }
+
+        function cleanSize(size) {
+            if (!size) return "";
+            return size.toString().replace('EU', '').replace('US', '').trim();
         }
 
         async function loadCatalog() {
@@ -67,10 +75,10 @@
             try {
                 debugElement.innerHTML = '<strong>Отладочная информация:</strong><br>';
 
-                // Загружаем данные из обеих таблиц
+                // Параллельная загрузка данных
                 const [shortData, longData] = await Promise.all([
-                    fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:Z"),
-                    fetchSheet(SHEET_ID_LONG, "TDSheet!A2:Z")
+                    fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:Z"), // Короткая таблица
+                    fetchSheet(SHEET_ID_LONG, "TDSheet!A2:Z")   // Длинная таблица
                 ]);
 
                 debugElement.innerHTML += `Короткая таблица: ${shortData.length} строк<br>`;
@@ -80,43 +88,63 @@
                     throw new Error("Получены пустые данные из таблиц");
                 }
 
-                // Создаем карту артикулов из короткой таблицы
-                const shortMap = {};
+                // Создаем карту артикулов и размеров из короткой таблицы
+                const sizeMap = {};
+                const priceMap = {};
+                
                 shortData.forEach(row => {
-                    const article = row[0]; // Столбец A (артикул)
+                    const article = row[0]; // A - Артикул
+                    const size = cleanSize(row[1]); // B - Розмір EU
+                    const price = row[2]; // C - Ціна
+
                     if (article) {
-                        shortMap[article] = {
-                            sizes: row.slice(1, 10).filter(Boolean), // Столбцы B-J (размеры)
-                            price: row[10] || "Нет данных" // Столбец K (цена)
-                        };
+                        if (!sizeMap[article]) sizeMap[article] = new Set();
+                        if (size) sizeMap[article].add(size);
+                        
+                        // Сохраняем минимальную цену для артикула
+                        if (price) {
+                            const numericPrice = parseFloat(price.toString().replace(/\s/g, '').replace(',', '.'));
+                            if (!isNaN(numericPrice)) {
+                                if (!priceMap[article] || numericPrice < priceMap[article]) {
+                                    priceMap[article] = numericPrice;
+                                }
+                            }
+                        }
                     }
                 });
 
-                debugElement.innerHTML += `Найдено артикулов: ${Object.keys(shortMap).length}<br>`;
+                debugElement.innerHTML += `Найдено артикулов: ${Object.keys(sizeMap).length}<br>`;
 
                 // Формируем каталог из длинной таблицы
                 const catalogItems = [];
+                const uniqueArticles = new Set();
+
                 longData.forEach(row => {
-                    const article = row[0]; // Столбец A (артикул)
-                    const name = row[1];     // Столбец B (название)
-                    const type = row[2];     // Столбец C (тип)
-                    const brand = row[3];    // Столбец D (бренд)
-                    const photo = row[4];    // Столбец E (фото)
+                    const article = row[0];    // A - Артикул
+                    const name = row[1];      // B - Товар
+                    const type = row[16];     // Q - Вид товару ("Взуття")
+                    const brand = row[15];    // P - Бренд
+                    const photos = row[23];   // X - Посилання на фото
+                    const longPrice = row[18]; // S - Ціна
 
-                    if (!article || !name) return;
+                    // Пропускаем если нет артикула или названия, или если не обувь
+                    if (!article || !name || (type && type !== "Взуття")) return;
 
-                    // Если тип указан и не "Взуття" - пропускаем
-                    if (type && type !== "Взуття") return;
+                    // Убираем дубликаты по артикулу
+                    if (uniqueArticles.has(article)) return;
+                    uniqueArticles.add(article);
 
-                    const itemData = shortMap[article] || {};
-                    
+                    // Получаем размеры и цену
+                    const sizes = sizeMap[article] ? Array.from(sizeMap[article]).sort() : ["Нет данных"];
+                    const price = priceMap[article] || longPrice;
+
                     catalogItems.push({
+                        article,
                         name: name.trim(),
                         brand: (brand || "").trim() || "Не указан",
-                        type: (type || "").trim() || "Не указан",
-                        photo: (photo || "").trim() || "https://via.placeholder.com/220x150?text=Нет+фото",
-                        sizes: getUniqueSizes(itemData.sizes),
-                        price: formatPrice(itemData.price)
+                        photo: extractFirstPhoto(photos),
+                        sizes,
+                        price: formatPrice(price)
                     });
                 });
 
@@ -130,9 +158,12 @@
                                  onerror="this.src='https://via.placeholder.com/220x150?text=Нет+фото'">
                             <h3>${item.name}</h3>
                             <p><strong>Бренд:</strong> ${item.brand}</p>
-                            <p><strong>Тип:</strong> ${item.type}</p>
-                            <p><strong>Размеры:</strong> ${item.sizes.join(", ")}</p>
-                            <p><strong>Цена:</strong> ${item.price}</p>
+                            <p><strong>Артикул:</strong> ${item.article}</p>
+                            <p><strong>Размеры:</strong></p>
+                            <div class="sizes">
+                                ${item.sizes.map(size => `<span class="size">${size}</span>`).join('')}
+                            </div>
+                            <p class="price"><strong>Цена:</strong> ${item.price}</p>
                         </div>
                     `).join("");
                 } else {
@@ -149,9 +180,9 @@
                         <ul style="text-align: left;">
                             <li>Название листа в обеих таблицах должно быть "TDSheet"</li>
                             <li>API ключ должен иметь доступ к таблицам</li>
-                            <li>Данные должны быть в столбцах A-Z</li>
                             <li>Проверьте консоль (F12) для подробной информации</li>
                         </ul>
+                        <p style="font-size: 12px;">${error.message}</p>
                     </div>
                 `;
             }
