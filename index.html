@@ -28,7 +28,7 @@
         const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
         const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
 
-        async function fetchSheet(sheetId, range) {
+        async function fetchSheet(sheetId, sheetGid, range) {
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
             try {
                 const response = await fetch(url);
@@ -55,10 +55,10 @@
             const catalogElement = document.getElementById("catalog");
             
             try {
-                // Параллельная загрузка данных
+                // Параллельная загрузка данных с правильными ID листов
                 const [shortData, longData] = await Promise.all([
-                    fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:C"),
-                    fetchSheet(SHEET_ID_LONG, "TDSheet!A2:E")
+                    fetchSheet(SHEET_ID_SHORT, "1151194139", "'1151194139'!A2:C"), // Короткая таблица
+                    fetchSheet(SHEET_ID_LONG, "156165298", "'156165298'!A2:E")    // Длинная таблица
                 ]);
 
                 if (!shortData.length || !longData.length) {
@@ -68,7 +68,7 @@
                 // Создаем карту артикулов с размерами и ценами
                 const shortMap = shortData.reduce((acc, row) => {
                     const [article, size, price] = row;
-                    if (!acc[article]) acc[article] = { sizes: [], price };
+                    if (article && !acc[article]) acc[article] = { sizes: [], price };
                     if (size) acc[article].sizes.push(size);
                     return acc;
                 }, {});
@@ -76,16 +76,16 @@
                 // Формируем каталог
                 const catalogItems = longData.reduce((acc, row) => {
                     const [article, name, type, brand, photo] = row;
-                    if (type !== "Взуття") return acc;
+                    if (!article || !name || type !== "Взуття") return acc;
 
                     const { sizes = [], price } = shortMap[article] || {};
                     const uniqueSizes = getUniqueSizes(sizes);
 
                     acc.push({
-                        name: name || "Без названия",
-                        brand: brand || "Не указан",
-                        type: type || "Не указан",
-                        photo: photo || "https://via.placeholder.com/220x150?text=Нет+фото",
+                        name: name.trim() || "Без названия",
+                        brand: brand?.trim() || "Не указан",
+                        type: type?.trim() || "Не указан",
+                        photo: photo?.trim() || "https://via.placeholder.com/220x150?text=Нет+фото",
                         sizes: uniqueSizes.length ? uniqueSizes : ["Нет данных"],
                         price: formatPrice(price)
                     });
@@ -114,9 +114,9 @@
                     <div class="error">
                         ❌ Ошибка загрузки данных! Проверьте:
                         <ul style="text-align: left;">
-                            <li>Название листа в таблицах (должно быть 'TDSheet')</li>
                             <li>Доступ к таблицам</li>
                             <li>Интернет-соединение</li>
+                            <li>Консоль разработчика для подробностей</li>
                         </ul>
                         <p style="font-size: 12px;">${error.message}</p>
                     </div>
