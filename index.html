@@ -15,6 +15,7 @@
         .item p { margin: 4px 0; font-size: 14px; }
         .loading { font-size: 18px; padding: 20px; }
         .error { color: red; font-size: 18px; padding: 20px; }
+        .debug-info { font-size: 12px; text-align: left; margin-top: 20px; padding: 10px; background: #eee; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -22,6 +23,7 @@
     <div id="catalog">
         <div class="loading">🔄 Загружаем товары...</div>
     </div>
+    <div id="debug" class="debug-info" style="display: none;"></div>
 
     <script>
         const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
@@ -31,9 +33,15 @@
         async function fetchSheet(sheetId, range) {
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
             try {
+                console.log(`Загрузка: ${url}`);
                 const response = await fetch(url);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error('Детали ошибки:', errorData);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 const data = await response.json();
+                console.log(`Получены данные:`, data);
                 return data.values || [];
             } catch (error) {
                 console.error(`Ошибка загрузки (${range}):`, error);
@@ -53,45 +61,61 @@
 
         async function loadCatalog() {
             const catalogElement = document.getElementById("catalog");
+            const debugElement = document.getElementById("debug");
             
             try {
+                // Включаем отладочную информацию
+                debugElement.style.display = 'block';
+                debugElement.innerHTML = '<strong>Отладочная информация:</strong><br>';
+
                 // Параллельная загрузка данных
                 const [shortData, longData] = await Promise.all([
                     fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:C"),
                     fetchSheet(SHEET_ID_LONG, "TDSheet!A2:E")
                 ]);
 
+                debugElement.innerHTML += `Короткая таблица: ${shortData.length} строк<br>`;
+                debugElement.innerHTML += `Длинная таблица: ${longData.length} строк<br>`;
+
                 if (!shortData.length || !longData.length) {
                     throw new Error("Получены пустые данные из таблиц");
                 }
 
-                // Создаем карту артикулов с размерами и ценами
-                const shortMap = shortData.reduce((acc, row) => {
+                // Создаем карту артикулов
+                const shortMap = {};
+                shortData.forEach(row => {
                     const [article, size, price] = row;
-                    if (article && !acc[article]) acc[article] = { sizes: [], price };
-                    if (size) acc[article].sizes.push(size);
-                    return acc;
-                }, {});
+                    if (article) {
+                        if (!shortMap[article]) shortMap[article] = { sizes: [], price };
+                        if (size) shortMap[article].sizes.push(size);
+                    }
+                });
+
+                debugElement.innerHTML += `Найдено артикулов: ${Object.keys(shortMap).length}<br>`;
 
                 // Формируем каталог
-                const catalogItems = longData.reduce((acc, row) => {
+                const catalogItems = [];
+                longData.forEach(row => {
                     const [article, name, type, brand, photo] = row;
-                    if (!article || !name || (type && type !== "Взуття")) return acc;
+                    if (!article || !name) return;
+
+                    // Если тип указан и не "Взуття" - пропускаем
+                    if (type && type !== "Взуття") return;
 
                     const { sizes = [], price } = shortMap[article] || {};
                     const uniqueSizes = getUniqueSizes(sizes);
 
-                    acc.push({
+                    catalogItems.push({
                         name: name.trim() || "Без названия",
-                        brand: brand?.trim() || "Не указан",
-                        type: type?.trim() || "Не указан",
-                        photo: photo?.trim() || "https://via.placeholder.com/220x150?text=Нет+фото",
+                        brand: (brand || "").trim() || "Не указан",
+                        type: (type || "").trim() || "Не указан",
+                        photo: (photo || "").trim() || "https://via.placeholder.com/220x150?text=Нет+фото",
                         sizes: uniqueSizes.length ? uniqueSizes : ["Нет данных"],
                         price: formatPrice(price)
                     });
+                });
 
-                    return acc;
-                }, []);
+                debugElement.innerHTML += `Товаров в каталоге: ${catalogItems.length}<br>`;
 
                 // Рендерим каталог
                 catalogElement.innerHTML = catalogItems.length 
@@ -110,15 +134,16 @@
 
             } catch (error) {
                 console.error("Ошибка загрузки каталога:", error);
+                debugElement.innerHTML += `<br><strong>Ошибка:</strong> ${error.message}`;
+                
                 catalogElement.innerHTML = `
                     <div class="error">
                         ❌ Ошибка загрузки данных! Проверьте:
                         <ul style="text-align: left;">
                             <li>Название листа в обеих таблицах должно быть точно "TDSheet"</li>
                             <li>API ключ должен иметь доступ к этим таблицам</li>
-                            <li>Данные должны быть в диапазонах A2:C и A2:E</li>
+                            <li>Откройте консоль разработчика (F12) для подробностей</li>
                         </ul>
-                        <p style="font-size: 12px;">${error.message}</p>
                     </div>
                 `;
             }
