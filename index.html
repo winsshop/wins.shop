@@ -1,94 +1,87 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Каталог кроссовок</title>
-    <link rel="icon" href="data:,"> <!-- Убирает 404 favicon.ico -->
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background: #f9f9f9; }
-        h1 { margin-bottom: 20px; }
-        #catalog { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
-        .item { background: #fff; border: 1px solid #ccc; padding: 15px; width: 220px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 8px; }
-        .item img { width: 100%; height: auto; border-radius: 4px; }
-        .item h3 { margin: 10px 0 5px; }
-        .item p { margin: 4px 0; font-size: 14px; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Каталог кроссовок</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; }
+    #catalog { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-top: 20px; }
+    .item { border: 1px solid #ccc; padding: 10px; width: 220px; }
+    .item img { width: 100%; height: auto; }
+  </style>
 </head>
 <body>
-    <h1>Каталог кроссовок</h1>
-    <div id="catalog">🔄 Загружаем товары...</div>
+  <h1>Каталог кроссовок</h1>
+  <div id="catalog">Загрузка...</div>
 
-    <script>
-        const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
-        const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
-        const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
+  <script>
+    const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
+    const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
 
-        async function fetchSheet(sheetId, range) {
-            const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${API_KEY}`;
-            try {
-                let response = await fetch(url);
-                let data = await response.json();
-                if (data.error) throw new Error(data.error.message);
-                return data.values || [];
-            } catch (error) {
-                console.error(`Ошибка загрузки (${range}):`, error);
-                return [];
-            }
+    async function fetchSheet(sheetId, range) {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${API_KEY}`;
+      try {
+        let response = await fetch(url);
+        let data = await response.json();
+        if (data.error) throw new Error(data.error.message);
+        return data.values || [];
+      } catch (error) {
+        console.error(`Ошибка загрузки (${range}):`, error);
+        return [];
+      }
+    }
+
+    async function loadCatalog() {
+      console.log("🔄 Загружаем данные...");
+      let data = await fetchSheet(SHEET_ID_LONG, "TDSheet!A2:W");
+
+      if (!data.length) {
+        document.getElementById("catalog").innerText = "😐 Нет данных для отображения.";
+        return;
+      }
+
+      let catalog = {};
+
+      data.forEach(row => {
+        let [article, name, sizeEU,,, , , , , , , type, , , brand, category, , price, , quantity] = row;
+
+        if (category !== "Взуття") return;
+
+        let key = `${article}-${name}`;
+
+        if (!catalog[key]) {
+          catalog[key] = {
+            article,
+            name,
+            brand,
+            type,
+            sizes: [],
+            price,
+            photo: "https://via.placeholder.com/200x150?text=No+Image"
+          };
         }
 
-        async function loadCatalog() {
-            console.log("🔄 Загружаем данные...");
-            let shortData = await fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:C"); // Артикул, Размеры, Цена
-            let longData = await fetchSheet(SHEET_ID_LONG, "TDSheet!A2:E");   // Артикул, Название, Тип, Бренд, Фото
+        if (sizeEU) catalog[key].sizes.push(sizeEU);
+      });
 
-            const catalogElement = document.getElementById("catalog");
+      const catalogHTML = Object.values(catalog).map(item => {
+        return `
+          <div class="item">
+            <img src="${item.photo}" alt="${item.name}">
+            <h3>${item.name}</h3>
+            <p><strong>Бренд:</strong> ${item.brand || "Не указан"}</p>
+            <p><strong>Тип:</strong> ${item.type || "Не указан"}</p>
+            <p><strong>Размеры:</strong> ${item.sizes.join(", ")}</p>
+            <p><strong>Цена:</strong> ${item.price || "Нет цены"}</p>
+          </div>
+        `;
+      }).join("");
 
-            if (!shortData.length || !longData.length) {
-                catalogElement.innerText = "❌ Ошибка загрузки данных! Проверьте доступ к таблицам.";
-                return;
-            }
+      document.getElementById("catalog").innerHTML = catalogHTML || "😐 Нет данных для отображения.";
+    }
 
-            let shortMap = {};
-            shortData.forEach(row => {
-                let [article, size, price] = row;
-                if (!shortMap[article]) {
-                    shortMap[article] = { sizes: [], price };
-                }
-                shortMap[article].sizes.push(size);
-            });
-
-            let catalogMap = {};
-            longData.forEach(row => {
-                let [article, name, type, brand, photo] = row;
-                if (type !== "Взуття") return;
-
-                let { sizes, price } = shortMap[article] || { sizes: ["Нет данных"], price: "Нет данных" };
-                let key = `${name}-${brand}-${type}`;
-
-                if (!catalogMap[key]) {
-                    catalogMap[key] = { name, brand, type, photo, sizes: new Set(), price };
-                }
-                sizes.forEach(size => catalogMap[key].sizes.add(size));
-            });
-
-            let catalogHTML = Object.values(catalogMap).map(item => {
-                return `
-                    <div class="item">
-                        <img src="${item.photo}" alt="${item.name}" onerror="this.src='https://via.placeholder.com/220x150?text=Нет+фото';">
-                        <h3>${item.name}</h3>
-                        <p><strong>Бренд:</strong> ${item.brand || "Не указан"}</p>
-                        <p><strong>Тип:</strong> ${item.type || "Не указан"}</p>
-                        <p><strong>Размеры:</strong> ${[...item.sizes].join(", ")}</p>
-                        <p><strong>Цена:</strong> ${item.price}</p>
-                    </div>
-                `;
-            }).join("");
-
-            catalogElement.innerHTML = catalogHTML || "😐 Нет данных для отображения.";
-        }
-
-        loadCatalog();
-    </script>
+    loadCatalog();
+  </script>
 </body>
 </html>
