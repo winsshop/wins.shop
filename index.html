@@ -34,27 +34,28 @@
         const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
         const PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 150'%3E%3Crect width='220' height='150' fill='%23f5f5f5'/%3E%3Ctext x='50%' y='50%' font-family='Arial' font-size='14' fill='%23666' text-anchor='middle' dominant-baseline='middle'%3EНет фото%3C/text%3E%3C/svg%3E";
 
-        // Обновлённая функция
+        // Функция для извлечения первой фотографии из строки
         function extractFirstPhoto(photoString) {
             if (!photoString) return PLACEHOLDER_IMAGE;
             
+            // Удаляем кавычки и разбиваем по точкам с запятой
             const cleanedString = photoString.replace(/"/g, '').trim();
             const photos = cleanedString.split(';')
                 .map(url => url.trim())
                 .filter(url => url.length > 0 && url !== 'http://');
-
+            
             if (photos.length === 0) return PLACEHOLDER_IMAGE;
-
+            
+            // Берем первую фотографию и проверяем URL
             const firstPhoto = photos[0];
-
+            
+            // Пробуем преобразовать HTTP в HTTPS для внешних ссылок
             try {
                 const url = new URL(firstPhoto);
-
                 if (url.hostname === '95.216.46.104') {
-                    // Прокси через HTTPS
-                    return `https://corsproxy.io/?${encodeURIComponent(firstPhoto)}`;
+                    // Для этого хоста оставляем HTTP (или можно использовать placeholder)
+                    return firstPhoto;
                 }
-
                 return firstPhoto.replace('http://', 'https://');
             } catch {
                 return PLACEHOLDER_IMAGE;
@@ -96,6 +97,7 @@
             try {
                 debugElement.innerHTML = '<strong>Отладочная информация:</strong><br>';
 
+                // Параллельная загрузка данных
                 const [shortData, longData] = await Promise.all([
                     fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:Z"),
                     fetchSheet(SHEET_ID_LONG, "TDSheet!A2:Z")
@@ -108,13 +110,14 @@
                     throw new Error("Получены пустые данные из таблиц");
                 }
 
+                // Создаем карту артикулов и размеров из короткой таблицы
                 const sizeMap = {};
                 const priceMap = {};
                 
                 shortData.forEach(row => {
-                    const article = row[0];
-                    const size = cleanSize(row[1]);
-                    const price = row[2];
+                    const article = row[0]; // A - Артикул
+                    const size = cleanSize(row[1]); // B - Розмір EU
+                    const price = row[2]; // C - Ціна
 
                     if (article) {
                         if (!sizeMap[article]) sizeMap[article] = new Set();
@@ -133,21 +136,26 @@
 
                 debugElement.innerHTML += `Найдено артикулов: ${Object.keys(sizeMap).length}<br>`;
 
+                // Формируем каталог из длинной таблицы (только Взуття)
                 const catalogItems = [];
                 const uniqueArticles = new Set();
 
                 longData.forEach(row => {
-                    const article = row[0];
-                    const name = row[1];
-                    const type = row[16];
-                    const brand = row[15];
-                    const photos = row[23];
-                    const longPrice = row[18];
+                    const article = row[0];    // A - Артикул
+                    const name = row[1];       // B - Товар
+                    const type = row[16];      // Q - Вид товару
+                    const brand = row[15];     // P - Бренд
+                    const photos = row[23];    // X - Посилання на фото
+                    const longPrice = row[18]; // S - Ціна
 
+                    // Пропускаем если нет артикула или названия, или если не обувь
                     if (!article || !name || (type && type !== "Взуття")) return;
+
+                    // Убираем дубликаты по артикулу
                     if (uniqueArticles.has(article)) return;
                     uniqueArticles.add(article);
 
+                    // Получаем размеры и цену
                     const sizes = sizeMap[article] ? Array.from(sizeMap[article]).sort() : ["Нет данных"];
                     const price = priceMap[article] || longPrice;
 
@@ -163,6 +171,7 @@
 
                 debugElement.innerHTML += `Товаров в каталоге: ${catalogItems.length}<br>`;
 
+                // Отображаем каталог
                 if (catalogItems.length) {
                     catalogElement.innerHTML = catalogItems.map(item => `
                         <div class="item">
@@ -200,6 +209,7 @@
             }
         }
 
+        // Запускаем загрузку при полной загрузке DOM
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', loadCatalog);
         } else {
