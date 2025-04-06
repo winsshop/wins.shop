@@ -10,21 +10,7 @@
         h1 { margin-bottom: 20px; }
         #catalog { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
         .item { background: #fff; border: 1px solid #ccc; padding: 15px; width: 220px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 8px; }
-        .image-container { width: 100%; height: 150px; position: relative; margin-bottom: 10px; }
-        .image-object { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; }
-        .image-fallback { 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            background: #f5f5f5; 
-            color: #666;
-            border-radius: 4px;
-        }
+        .item img { width: 100%; height: 150px; object-fit: cover; border-radius: 4px; background: #f5f5f5; }
         .item h3 { margin: 10px 0 5px; }
         .item p { margin: 4px 0; font-size: 14px; }
         .loading { font-size: 18px; padding: 20px; }
@@ -44,41 +30,32 @@
         const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
         const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
         const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
+        const IMAGE_PROXY = "https://images.weserv.nl/?url=";
+
+        // Функция для извлечения и преобразования URL изображения
+        function processImageUrl(originalUrl) {
+            if (!originalUrl) return null;
+            
+            try {
+                // Преобразуем URL для обхода ограничений
+                const url = new URL(originalUrl);
+                if (url.hostname === '95.216.46.104') {
+                    // Используем прокси для изображений с этого хоста
+                    return IMAGE_PROXY + encodeURIComponent(url.href);
+                }
+                return originalUrl;
+            } catch {
+                return null;
+            }
+        }
 
         // Функция для извлечения первой фотографии
         function extractFirstPhoto(photoString) {
             if (!photoString) return null;
-            const matches = photoString.match(/;http[^;]+/);
-            return matches ? matches[0].replace(/^;/, '') : null;
-        }
-
-        // Функция для создания элемента изображения
-        function createImageElement(photoUrl, altText) {
-            const container = document.createElement('div');
-            container.className = 'image-container';
-            
-            // Используем object вместо img для обхода некоторых CORS-ограничений
-            const object = document.createElement('object');
-            object.className = 'image-object';
-            object.data = photoUrl || '';
-            object.type = 'image/jpeg';
-            object.title = altText;
-            
-            // Fallback содержимое
-            const fallback = document.createElement('div');
-            fallback.className = 'image-fallback';
-            fallback.textContent = altText;
-            
-            object.appendChild(document.createTextNode('Ваш браузер не поддерживает отображение изображений через object'));
-            container.appendChild(object);
-            container.appendChild(fallback);
-            
-            // Если фото не загрузилось, показываем fallback
-            object.onerror = function() {
-                fallback.style.display = 'flex';
-            };
-            
-            return container;
+            const photos = photoString.split(';')
+                .map(url => url.trim())
+                .filter(url => url.startsWith('http'));
+            return photos.length > 0 ? photos[0] : null;
         }
 
         async function fetchSheet(sheetId, range) {
@@ -160,29 +137,25 @@
 
                     const sizes = sizeMap[article] ? Array.from(sizeMap[article]).sort() : ["Нет данных"];
                     const price = priceMap[article] || longPrice;
+                    const originalPhoto = extractFirstPhoto(photos);
+                    const processedPhoto = processImageUrl(originalPhoto);
 
                     catalogItems.push({
                         article,
                         name: name.trim(),
                         brand: (brand || "").trim() || "Не указан",
-                        photo: extractFirstPhoto(photos),
+                        photo: processedPhoto,
                         sizes,
                         price: formatPrice(price)
                     });
                 });
 
                 // Отображаем каталог
-                catalogElement.innerHTML = '';
-                catalogItems.forEach(item => {
-                    const itemElement = document.createElement('div');
-                    itemElement.className = 'item';
-                    
-                    // Добавляем изображение
-                    const imageElement = createImageElement(item.photo, item.name);
-                    itemElement.appendChild(imageElement);
-                    
-                    // Добавляем информацию о товаре
-                    itemElement.innerHTML += `
+                catalogElement.innerHTML = catalogItems.map(item => `
+                    <div class="item">
+                        <img src="${item.photo || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='}" 
+                             alt="${item.name}"
+                             onerror="this.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='">
                         <h3>${item.name}</h3>
                         <p><strong>Бренд:</strong> ${item.brand}</p>
                         <p><strong>Артикул:</strong> ${item.article}</p>
@@ -191,16 +164,14 @@
                             ${item.sizes.map(size => `<span class="size">${size}</span>`).join('')}
                         </div>
                         <p class="price"><strong>Цена:</strong> ${item.price}</p>
-                    `;
-                    
-                    catalogElement.appendChild(itemElement);
-                });
+                    </div>
+                `).join("");
 
             } catch (error) {
                 console.error("Ошибка загрузки каталога:", error);
                 catalogElement.innerHTML = `
                     <div class="error">
-                        ❌ Ошибка загрузки данных! Проверьте консоль (F12) для подробностей.
+                        ❌ Ошибка загрузки данных! Проверьте консоль (F12).
                     </div>
                 `;
             }
