@@ -19,6 +19,19 @@
         .price { font-weight: bold; color: #e53935; }
         .sizes { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
         .size { padding: 2px 5px; background: #f0f0f0; border-radius: 3px; }
+        .image-container { position: relative; }
+        .image-placeholder { 
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(245,245,245,0.8);
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -32,34 +45,56 @@
         const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
         const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
         const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
-        const PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 150'%3E%3Crect width='220' height='150' fill='%23f5f5f5'/%3E%3Ctext x='50%' y='50%' font-family='Arial' font-size='14' fill='%23666' text-anchor='middle' dominant-baseline='middle'%3EНет фото%3C/text%3E%3C/svg%3E";
+        const IMAGE_PROXY = "https://cors-anywhere.herokuapp.com/"; // Прокси для обхода CORS
 
-        // Функция для извлечения первой фотографии из строки
+        // Функция для извлечения первой фотографии
         function extractFirstPhoto(photoString) {
-            if (!photoString) return PLACEHOLDER_IMAGE;
+            if (!photoString) return null;
             
-            // Удаляем кавычки и разбиваем по точкам с запятой
             const cleanedString = photoString.replace(/"/g, '').trim();
             const photos = cleanedString.split(';')
                 .map(url => url.trim())
-                .filter(url => url.length > 0 && url !== 'http://');
+                .filter(url => url.length > 0 && !url.startsWith('http://$'));
             
-            if (photos.length === 0) return PLACEHOLDER_IMAGE;
+            return photos.length > 0 ? photos[0] : null;
+        }
+
+        // Функция для создания элемента изображения с обработкой ошибок
+        function createImageElement(photoUrl, altText) {
+            const container = document.createElement('div');
+            container.className = 'image-container';
             
-            // Берем первую фотографию и проверяем URL
-            const firstPhoto = photos[0];
+            const img = document.createElement('img');
+            img.alt = altText;
             
-            // Пробуем преобразовать HTTP в HTTPS для внешних ссылок
-            try {
-                const url = new URL(firstPhoto);
-                if (url.hostname === '95.216.46.104') {
-                    // Для этого хоста оставляем HTTP (или можно использовать placeholder)
-                    return firstPhoto;
-                }
-                return firstPhoto.replace('http://', 'https://');
-            } catch {
-                return PLACEHOLDER_IMAGE;
+            const placeholder = document.createElement('div');
+            placeholder.className = 'image-placeholder';
+            placeholder.textContent = altText;
+            
+            container.appendChild(img);
+            container.appendChild(placeholder);
+            
+            if (photoUrl) {
+                // Пробуем загрузить через прокси
+                const proxyUrl = IMAGE_PROXY + photoUrl;
+                img.src = proxyUrl;
+                
+                img.onload = function() {
+                    placeholder.style.display = 'none';
+                };
+                
+                img.onerror = function() {
+                    // Если прокси не сработал, пробуем напрямую
+                    img.src = photoUrl;
+                    img.onerror = function() {
+                        placeholder.style.display = 'flex';
+                    };
+                };
+            } else {
+                placeholder.style.display = 'flex';
             }
+            
+            return container;
         }
 
         async function fetchSheet(sheetId, range) {
@@ -173,10 +208,14 @@
 
                 // Отображаем каталог
                 if (catalogItems.length) {
-                    catalogElement.innerHTML = catalogItems.map(item => `
-                        <div class="item">
-                            <img src="${item.photo}" alt="${item.name}" 
-                                 onerror="this.src='${PLACEHOLDER_IMAGE}'">
+                    catalogElement.innerHTML = '';
+                    catalogItems.forEach(item => {
+                        const itemElement = document.createElement('div');
+                        itemElement.className = 'item';
+                        
+                        const imageContainer = createImageElement(item.photo, item.name);
+                        
+                        itemElement.innerHTML = `
                             <h3>${item.name}</h3>
                             <p><strong>Бренд:</strong> ${item.brand}</p>
                             <p><strong>Артикул:</strong> ${item.article}</p>
@@ -185,8 +224,11 @@
                                 ${item.sizes.map(size => `<span class="size">${size}</span>`).join('')}
                             </div>
                             <p class="price"><strong>Цена:</strong> ${item.price}</p>
-                        </div>
-                    `).join("");
+                        `;
+                        
+                        itemElement.prepend(imageContainer);
+                        catalogElement.appendChild(itemElement);
+                    });
                 } else {
                     catalogElement.innerHTML = '<div class="error">😐 Нет данных для отображения.</div>';
                 }
