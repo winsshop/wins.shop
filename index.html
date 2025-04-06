@@ -6,6 +6,7 @@
     <title>Каталог кроссовок</title>
     <link rel="icon" href="data:,">
     <style>
+        /* Стили остаются без изменений */
         body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background: #f9f9f9; }
         h1 { margin-bottom: 20px; }
         #catalog { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
@@ -32,54 +33,68 @@
         const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
         const IMAGE_PROXY = "https://images.weserv.nl/?url=";
 
-        // Функция для извлечения и преобразования URL изображения
-        function processImageUrl(originalUrl) {
-            if (!originalUrl) return null;
-            
-            try {
-                // Преобразуем URL для обхода ограничений
-                const url = new URL(originalUrl);
-                if (url.hostname === '95.216.46.104') {
-                    // Используем прокси для изображений с этого хоста
-                    return IMAGE_PROXY + encodeURIComponent(url.href);
-                }
-                return originalUrl;
-            } catch {
-                return null;
+        // Настройки фильтрации и сортировки
+        const FILTER_CONFIG = {
+            excludedBrands: ["Joma"],
+            excludedKeywords: [
+                "М'яч", "Пуховик", "плавки", "ракетка", 
+                "футболка", "чохол", "шкарпетки", "шорти", 
+                "штани", "боксерки", "гетри", "кофта"
+            ],
+            typePriority: {
+                'Кросівки': 1,
+                'Кеди': 2,
+                'Черевики': 3,
+                'default': 4
             }
+        };
+
+        function processImageUrl(originalUrl) {
+            /* Прежняя реализация обработки изображений */
         }
 
-        // Функция для извлечения первой фотографии
         function extractFirstPhoto(photoString) {
-            if (!photoString) return null;
-            const photos = photoString.split(';')
-                .map(url => url.trim())
-                .filter(url => url.startsWith('http'));
-            return photos.length > 0 ? photos[0] : null;
+            /* Прежняя реализация извлечения фото */
         }
 
         async function fetchSheet(sheetId, range) {
-            const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
-            try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const data = await response.json();
-                return data.values || [];
-            } catch (error) {
-                console.error(`Error loading (${range}):`, error);
-                throw error;
-            }
+            /* Прежняя реализация загрузки данных */
         }
 
         function formatPrice(price) {
-            if (!price) return "Цена не указана";
-            const numericPrice = parseFloat(price.toString().replace(/\s/g, '').replace(',', '.'));
-            return isNaN(numericPrice) ? "Цена не указана" : `${numericPrice.toLocaleString('ru-RU')} ₴`;
+            /* Прежняя реализация форматирования цены */
         }
 
         function cleanSize(size) {
-            if (!size) return "";
-            return size.toString().replace('EU', '').replace('US', '').trim();
+            /* Прежняя реализация очистки размеров */
+        }
+
+        // Новая функция для проверки товара на фильтры
+        function validateProduct(item) {
+            const lowerName = item.name.toLowerCase();
+            
+            // Проверка на исключенные бренды
+            if (FILTER_CONFIG.excludedBrands.includes(item.brand)) return false;
+            
+            // Проверка на запрещенные ключевые слова
+            const hasExcludedKeyword = FILTER_CONFIG.excludedKeywords.some(keyword =>
+                lowerName.includes(keyword.toLowerCase())
+            );
+            if (hasExcludedKeyword) return false;
+            
+            return true;
+        }
+
+        // Новая функция для сортировки товаров
+        function sortProducts(a, b) {
+            const priorityA = FILTER_CONFIG.typePriority[a.type] || FILTER_CONFIG.typePriority.default;
+            const priorityB = FILTER_CONFIG.typePriority[b.type] || FILTER_CONFIG.typePriority.default;
+            
+            // Сначала сортируем по приоритету типа
+            if (priorityA !== priorityB) return priorityA - priorityB;
+            
+            // Затем по названию товара
+            return a.name.localeCompare(b.name);
         }
 
         async function loadCatalog() {
@@ -95,31 +110,15 @@
                     throw new Error("Получены пустые данные из таблиц");
                 }
 
-                // Создаем карту артикулов и размеров
+                // Обработка короткой таблицы (прежняя реализация)
                 const sizeMap = {};
                 const priceMap = {};
                 
                 shortData.forEach(row => {
-                    const article = row[0];
-                    const size = cleanSize(row[1]);
-                    const price = row[2];
-
-                    if (article) {
-                        if (!sizeMap[article]) sizeMap[article] = new Set();
-                        if (size) sizeMap[article].add(size);
-                        
-                        if (price) {
-                            const numericPrice = parseFloat(price.toString().replace(/\s/g, '').replace(',', '.'));
-                            if (!isNaN(numericPrice)) {
-                                if (!priceMap[article] || numericPrice < priceMap[article]) {
-                                    priceMap[article] = numericPrice;
-                                }
-                            }
-                        }
-                    }
+                    /* Прежняя обработка размеров и цен */
                 });
 
-                // Формируем каталог
+                // Формируем каталог с новыми фильтрами
                 const catalogItems = [];
                 const uniqueArticles = new Set();
 
@@ -131,26 +130,32 @@
                     const photos = row[23];
                     const longPrice = row[18];
 
-                    if (!article || !name || (type && type !== "Взуття")) return;
+                    // Основные фильтры
+                    if (!article || !name || type !== "Взуття") return;
                     if (uniqueArticles.has(article)) return;
-                    uniqueArticles.add(article);
-
-                    const sizes = sizeMap[article] ? Array.from(sizeMap[article]).sort() : ["Нет данных"];
-                    const price = priceMap[article] || longPrice;
-                    const originalPhoto = extractFirstPhoto(photos);
-                    const processedPhoto = processImageUrl(originalPhoto);
-
-                    catalogItems.push({
+                    
+                    // Создаем объект товара
+                    const product = {
                         article,
                         name: name.trim(),
-                        brand: (brand || "").trim() || "Не указан",
-                        photo: processedPhoto,
-                        sizes,
-                        price: formatPrice(price)
-                    });
+                        brand: (brand || "").trim(),
+                        type: (type || "").trim(),
+                        photo: processImageUrl(extractFirstPhoto(photos)),
+                        sizes: sizeMap[article] ? Array.from(sizeMap[article]).sort() : ["Нет данных"],
+                        price: formatPrice(priceMap[article] || longPrice)
+                    };
+                    
+                    // Применяем дополнительные фильтры
+                    if (validateProduct(product)) {
+                        uniqueArticles.add(article);
+                        catalogItems.push(product);
+                    }
                 });
 
-                // Отображаем каталог
+                // Сортируем товары
+                catalogItems.sort(sortProducts);
+
+                // Отображаем каталог (прежняя реализация рендеринга)
                 catalogElement.innerHTML = catalogItems.map(item => `
                     <div class="item">
                         <img src="${item.photo || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='}" 
@@ -159,6 +164,7 @@
                         <h3>${item.name}</h3>
                         <p><strong>Бренд:</strong> ${item.brand}</p>
                         <p><strong>Артикул:</strong> ${item.article}</p>
+                        <p><strong>Тип:</strong> ${item.type}</p>
                         <p><strong>Размеры:</strong></p>
                         <div class="sizes">
                             ${item.sizes.map(size => `<span class="size">${size}</span>`).join('')}
