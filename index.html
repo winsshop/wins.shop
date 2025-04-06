@@ -10,28 +10,28 @@
         h1 { margin-bottom: 20px; }
         #catalog { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
         .item { background: #fff; border: 1px solid #ccc; padding: 15px; width: 220px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 8px; }
-        .item img { width: 100%; height: auto; border-radius: 4px; min-height: 150px; object-fit: cover; background: #f5f5f5; }
+        .image-container { width: 100%; height: 150px; position: relative; margin-bottom: 10px; }
+        .image-object { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; }
+        .image-fallback { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            background: #f5f5f5; 
+            color: #666;
+            border-radius: 4px;
+        }
         .item h3 { margin: 10px 0 5px; }
         .item p { margin: 4px 0; font-size: 14px; }
         .loading { font-size: 18px; padding: 20px; }
         .error { color: red; font-size: 18px; padding: 20px; }
-        .debug-info { font-size: 12px; text-align: left; margin-top: 20px; padding: 10px; background: #eee; border-radius: 4px; }
         .price { font-weight: bold; color: #e53935; }
         .sizes { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
         .size { padding: 2px 5px; background: #f0f0f0; border-radius: 3px; }
-        .image-link { display: block; position: relative; }
-        .image-placeholder {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(245,245,245,0.8);
-            color: #666;
-        }
     </style>
 </head>
 <body>
@@ -39,46 +39,44 @@
     <div id="catalog">
         <div class="loading">🔄 Загружаем товары...</div>
     </div>
-    <div id="debug" class="debug-info"></div>
 
     <script>
         const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
         const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
         const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
 
+        // Функция для извлечения первой фотографии
         function extractFirstPhoto(photoString) {
             if (!photoString) return null;
             const matches = photoString.match(/;http[^;]+/);
             return matches ? matches[0].replace(/^;/, '') : null;
         }
 
+        // Функция для создания элемента изображения
         function createImageElement(photoUrl, altText) {
-            const container = document.createElement('a');
-            container.className = 'image-link';
-            container.href = photoUrl;
-            container.target = '_blank';
-            container.rel = 'noopener noreferrer';
+            const container = document.createElement('div');
+            container.className = 'image-container';
             
-            const img = document.createElement('img');
-            img.alt = altText;
+            // Используем object вместо img для обхода некоторых CORS-ограничений
+            const object = document.createElement('object');
+            object.className = 'image-object';
+            object.data = photoUrl || '';
+            object.type = 'image/jpeg';
+            object.title = altText;
             
-            const placeholder = document.createElement('div');
-            placeholder.className = 'image-placeholder';
-            placeholder.textContent = altText;
+            // Fallback содержимое
+            const fallback = document.createElement('div');
+            fallback.className = 'image-fallback';
+            fallback.textContent = altText;
             
-            // Пробуем загрузить изображение
-            if (photoUrl) {
-                img.src = photoUrl;
-                img.onerror = function() {
-                    // Если не удалось загрузить, показываем placeholder
-                    placeholder.style.display = 'flex';
-                };
-            } else {
-                placeholder.style.display = 'flex';
-            }
+            object.appendChild(document.createTextNode('Ваш браузер не поддерживает отображение изображений через object'));
+            container.appendChild(object);
+            container.appendChild(fallback);
             
-            container.appendChild(img);
-            container.appendChild(placeholder);
+            // Если фото не загрузилось, показываем fallback
+            object.onerror = function() {
+                fallback.style.display = 'flex';
+            };
             
             return container;
         }
@@ -109,7 +107,6 @@
 
         async function loadCatalog() {
             const catalogElement = document.getElementById("catalog");
-            const debugElement = document.getElementById("debug");
             
             try {
                 const [shortData, longData] = await Promise.all([
@@ -180,9 +177,12 @@
                     const itemElement = document.createElement('div');
                     itemElement.className = 'item';
                     
-                    const imageContainer = createImageElement(item.photo, item.name);
+                    // Добавляем изображение
+                    const imageElement = createImageElement(item.photo, item.name);
+                    itemElement.appendChild(imageElement);
                     
-                    itemElement.innerHTML = `
+                    // Добавляем информацию о товаре
+                    itemElement.innerHTML += `
                         <h3>${item.name}</h3>
                         <p><strong>Бренд:</strong> ${item.brand}</p>
                         <p><strong>Артикул:</strong> ${item.article}</p>
@@ -193,7 +193,6 @@
                         <p class="price"><strong>Цена:</strong> ${item.price}</p>
                     `;
                     
-                    itemElement.prepend(imageContainer);
                     catalogElement.appendChild(itemElement);
                 });
 
