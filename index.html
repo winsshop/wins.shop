@@ -19,8 +19,8 @@
         .price { font-weight: bold; color: #e53935; }
         .sizes { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
         .size { padding: 2px 5px; background: #f0f0f0; border-radius: 3px; }
-        .image-container { position: relative; }
-        .image-placeholder { 
+        .image-link { display: block; position: relative; }
+        .image-placeholder {
             position: absolute;
             top: 0;
             left: 0;
@@ -45,24 +45,19 @@
         const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
         const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
         const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
-        const IMAGE_PROXY = "https://cors-anywhere.herokuapp.com/"; // Прокси для обхода CORS
 
-        // Функция для извлечения первой фотографии
         function extractFirstPhoto(photoString) {
             if (!photoString) return null;
-            
-            const cleanedString = photoString.replace(/"/g, '').trim();
-            const photos = cleanedString.split(';')
-                .map(url => url.trim())
-                .filter(url => url.length > 0 && !url.startsWith('http://$'));
-            
-            return photos.length > 0 ? photos[0] : null;
+            const matches = photoString.match(/;http[^;]+/);
+            return matches ? matches[0].replace(/^;/, '') : null;
         }
 
-        // Функция для создания элемента изображения с обработкой ошибок
         function createImageElement(photoUrl, altText) {
-            const container = document.createElement('div');
-            container.className = 'image-container';
+            const container = document.createElement('a');
+            container.className = 'image-link';
+            container.href = photoUrl;
+            container.target = '_blank';
+            container.rel = 'noopener noreferrer';
             
             const img = document.createElement('img');
             img.alt = altText;
@@ -71,28 +66,19 @@
             placeholder.className = 'image-placeholder';
             placeholder.textContent = altText;
             
-            container.appendChild(img);
-            container.appendChild(placeholder);
-            
+            // Пробуем загрузить изображение
             if (photoUrl) {
-                // Пробуем загрузить через прокси
-                const proxyUrl = IMAGE_PROXY + photoUrl;
-                img.src = proxyUrl;
-                
-                img.onload = function() {
-                    placeholder.style.display = 'none';
-                };
-                
+                img.src = photoUrl;
                 img.onerror = function() {
-                    // Если прокси не сработал, пробуем напрямую
-                    img.src = photoUrl;
-                    img.onerror = function() {
-                        placeholder.style.display = 'flex';
-                    };
+                    // Если не удалось загрузить, показываем placeholder
+                    placeholder.style.display = 'flex';
                 };
             } else {
                 placeholder.style.display = 'flex';
             }
+            
+            container.appendChild(img);
+            container.appendChild(placeholder);
             
             return container;
         }
@@ -101,11 +87,7 @@
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
             try {
                 const response = await fetch(url);
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    console.error('Error details:', errorData);
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const data = await response.json();
                 return data.values || [];
             } catch (error) {
@@ -130,29 +112,23 @@
             const debugElement = document.getElementById("debug");
             
             try {
-                debugElement.innerHTML = '<strong>Отладочная информация:</strong><br>';
-
-                // Параллельная загрузка данных
                 const [shortData, longData] = await Promise.all([
                     fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:Z"),
                     fetchSheet(SHEET_ID_LONG, "TDSheet!A2:Z")
                 ]);
 
-                debugElement.innerHTML += `Короткая таблица: ${shortData.length} строк<br>`;
-                debugElement.innerHTML += `Длинная таблица: ${longData.length} строк<br>`;
-
                 if (!shortData.length || !longData.length) {
                     throw new Error("Получены пустые данные из таблиц");
                 }
 
-                // Создаем карту артикулов и размеров из короткой таблицы
+                // Создаем карту артикулов и размеров
                 const sizeMap = {};
                 const priceMap = {};
                 
                 shortData.forEach(row => {
-                    const article = row[0]; // A - Артикул
-                    const size = cleanSize(row[1]); // B - Розмір EU
-                    const price = row[2]; // C - Ціна
+                    const article = row[0];
+                    const size = cleanSize(row[1]);
+                    const price = row[2];
 
                     if (article) {
                         if (!sizeMap[article]) sizeMap[article] = new Set();
@@ -169,28 +145,22 @@
                     }
                 });
 
-                debugElement.innerHTML += `Найдено артикулов: ${Object.keys(sizeMap).length}<br>`;
-
-                // Формируем каталог из длинной таблицы (только Взуття)
+                // Формируем каталог
                 const catalogItems = [];
                 const uniqueArticles = new Set();
 
                 longData.forEach(row => {
-                    const article = row[0];    // A - Артикул
-                    const name = row[1];       // B - Товар
-                    const type = row[16];      // Q - Вид товару
-                    const brand = row[15];     // P - Бренд
-                    const photos = row[23];    // X - Посилання на фото
-                    const longPrice = row[18]; // S - Ціна
+                    const article = row[0];
+                    const name = row[1];
+                    const type = row[16];
+                    const brand = row[15];
+                    const photos = row[23];
+                    const longPrice = row[18];
 
-                    // Пропускаем если нет артикула или названия, или если не обувь
                     if (!article || !name || (type && type !== "Взуття")) return;
-
-                    // Убираем дубликаты по артикулу
                     if (uniqueArticles.has(article)) return;
                     uniqueArticles.add(article);
 
-                    // Получаем размеры и цену
                     const sizes = sizeMap[article] ? Array.from(sizeMap[article]).sort() : ["Нет данных"];
                     const price = priceMap[article] || longPrice;
 
@@ -204,59 +174,40 @@
                     });
                 });
 
-                debugElement.innerHTML += `Товаров в каталоге: ${catalogItems.length}<br>`;
-
                 // Отображаем каталог
-                if (catalogItems.length) {
-                    catalogElement.innerHTML = '';
-                    catalogItems.forEach(item => {
-                        const itemElement = document.createElement('div');
-                        itemElement.className = 'item';
-                        
-                        const imageContainer = createImageElement(item.photo, item.name);
-                        
-                        itemElement.innerHTML = `
-                            <h3>${item.name}</h3>
-                            <p><strong>Бренд:</strong> ${item.brand}</p>
-                            <p><strong>Артикул:</strong> ${item.article}</p>
-                            <p><strong>Размеры:</strong></p>
-                            <div class="sizes">
-                                ${item.sizes.map(size => `<span class="size">${size}</span>`).join('')}
-                            </div>
-                            <p class="price"><strong>Цена:</strong> ${item.price}</p>
-                        `;
-                        
-                        itemElement.prepend(imageContainer);
-                        catalogElement.appendChild(itemElement);
-                    });
-                } else {
-                    catalogElement.innerHTML = '<div class="error">😐 Нет данных для отображения.</div>';
-                }
+                catalogElement.innerHTML = '';
+                catalogItems.forEach(item => {
+                    const itemElement = document.createElement('div');
+                    itemElement.className = 'item';
+                    
+                    const imageContainer = createImageElement(item.photo, item.name);
+                    
+                    itemElement.innerHTML = `
+                        <h3>${item.name}</h3>
+                        <p><strong>Бренд:</strong> ${item.brand}</p>
+                        <p><strong>Артикул:</strong> ${item.article}</p>
+                        <p><strong>Размеры:</strong></p>
+                        <div class="sizes">
+                            ${item.sizes.map(size => `<span class="size">${size}</span>`).join('')}
+                        </div>
+                        <p class="price"><strong>Цена:</strong> ${item.price}</p>
+                    `;
+                    
+                    itemElement.prepend(imageContainer);
+                    catalogElement.appendChild(itemElement);
+                });
 
             } catch (error) {
                 console.error("Ошибка загрузки каталога:", error);
-                debugElement.innerHTML += `<br><strong>Ошибка:</strong> ${error.message}`;
-                
                 catalogElement.innerHTML = `
                     <div class="error">
-                        ❌ Ошибка загрузки данных! Проверьте:
-                        <ul style="text-align: left;">
-                            <li>Название листа в обеих таблицах должно быть "TDSheet"</li>
-                            <li>API ключ должен иметь доступ к таблицам</li>
-                            <li>Проверьте консоль (F12) для подробной информации</li>
-                        </ul>
-                        <p style="font-size: 12px;">${error.message}</p>
+                        ❌ Ошибка загрузки данных! Проверьте консоль (F12) для подробностей.
                     </div>
                 `;
             }
         }
 
-        // Запускаем загрузку при полной загрузке DOM
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', loadCatalog);
-        } else {
-            loadCatalog();
-        }
+        document.addEventListener('DOMContentLoaded', loadCatalog);
     </script>
 </body>
 </html>
