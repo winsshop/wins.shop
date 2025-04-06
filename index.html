@@ -34,21 +34,29 @@
         const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
         const PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 150'%3E%3Crect width='220' height='150' fill='%23f5f5f5'/%3E%3Ctext x='50%' y='50%' font-family='Arial' font-size='14' fill='%23666' text-anchor='middle' dominant-baseline='middle'%3EНет фото%3C/text%3E%3C/svg%3E";
 
-        // Функция для безопасной загрузки изображений
-        function getSafeImageUrl(url) {
-            if (!url) return PLACEHOLDER_IMAGE;
+        // Функция для извлечения первой фотографии из строки
+        function extractFirstPhoto(photoString) {
+            if (!photoString) return PLACEHOLDER_IMAGE;
             
+            // Удаляем кавычки и разбиваем по точкам с запятой
+            const cleanedString = photoString.replace(/"/g, '').trim();
+            const photos = cleanedString.split(';')
+                .map(url => url.trim())
+                .filter(url => url.length > 0 && url !== 'http://');
+            
+            if (photos.length === 0) return PLACEHOLDER_IMAGE;
+            
+            // Берем первую фотографию и проверяем URL
+            const firstPhoto = photos[0];
+            
+            // Пробуем преобразовать HTTP в HTTPS для внешних ссылок
             try {
-                // Пробуем преобразовать IP-адрес в домен
-                if (url.includes('95.216.46.104')) {
-                    return PLACEHOLDER_IMAGE; // Пропускаем проблемные URL
+                const url = new URL(firstPhoto);
+                if (url.hostname === '95.216.46.104') {
+                    // Для этого хоста оставляем HTTP (или можно использовать placeholder)
+                    return firstPhoto;
                 }
-                
-                // Проверяем валидность URL
-                new URL(url);
-                return url.startsWith('http://') 
-                    ? url.replace('http://', 'https://') 
-                    : url;
+                return firstPhoto.replace('http://', 'https://');
             } catch {
                 return PLACEHOLDER_IMAGE;
             }
@@ -75,18 +83,6 @@
             if (!price) return "Цена не указана";
             const numericPrice = parseFloat(price.toString().replace(/\s/g, '').replace(',', '.'));
             return isNaN(numericPrice) ? "Цена не указана" : `${numericPrice.toLocaleString('ru-RU')} ₴`;
-        }
-
-        function extractFirstPhoto(photoString) {
-            if (!photoString) return PLACEHOLDER_IMAGE;
-            
-            const photos = photoString.split(';')
-                .map(url => url.trim())
-                .filter(url => url.length > 0)
-                .map(url => url.replace(/"/g, ''))
-                .map(url => getSafeImageUrl(url));
-            
-            return photos.length > 0 ? photos[0] : PLACEHOLDER_IMAGE;
         }
 
         function cleanSize(size) {
