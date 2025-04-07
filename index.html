@@ -40,11 +40,22 @@
                 "штани", "боксерки", "гетри", "кофта"
             ],
             typePriority: {
-                'Кросівки': 1,
-                'Кеди': 2,
-                'Черевики': 3,
-                'default': 4
-            }
+                'Кросівки': 1,    // Основная категория
+                'Кеди': 2,       // Следующая после кроссовок
+                'Черевики': 3,   // После кед
+                'default': 5,    // Все остальные типы
+                'Аквашузи': 6,   // В самом низу
+                'Бутси': 7,      // В самом низу
+                'Крокси': 8,     // В самом низу
+                'Коралки': 8,    // В самом низу
+                "В'єтнамки": 8   // В самом низу
+            },
+            lowPriorityNames: [
+                'Кросівки',
+                'Крокси',
+                'Коралки',
+                "В'єтнамки"
+            ]
         };
 
         function processImageUrl(originalUrl) {
@@ -106,13 +117,38 @@
         }
 
         function sortProducts(a, b) {
-            const typeA = (a.type || '').trim();
-            const typeB = (b.type || '').trim();
-            
+            // Определяем тип с учетом синонимов
+            const resolveType = (type) => {
+                const lowerType = type.toLowerCase();
+                if (lowerType.includes('аквашуз')) return 'Аквашузи';
+                if (lowerType.includes('бутс')) return 'Бутси';
+                if (lowerType.includes('крокс')) return 'Крокси';
+                if (lowerType.includes('корал')) return 'Коралки';
+                if (lowerType.includes("в'єтнам")) return "В'єтнамки";
+                return type;
+            };
+
+            const typeA = resolveType(a.type || '');
+            const typeB = resolveType(b.type || '');
+
+            // Приоритет по типу
             const priorityA = FILTER_CONFIG.typePriority[typeA] || FILTER_CONFIG.typePriority.default;
             const priorityB = FILTER_CONFIG.typePriority[typeB] || FILTER_CONFIG.typePriority.default;
-            
+
+            // Сначала сортируем по основному приоритету
             if (priorityA !== priorityB) return priorityA - priorityB;
+
+            // Для кроссовок: товары с названием только "Кросівки" - вниз
+            if (typeA === 'Кросівки' && typeB === 'Кросівки') {
+                const isLowPriorityA = FILTER_CONFIG.lowPriorityNames.some(name => a.name.trim() === name);
+                const isLowPriorityB = FILTER_CONFIG.lowPriorityNames.some(name => b.name.trim() === name);
+                
+                if (isLowPriorityA !== isLowPriorityB) {
+                    return isLowPriorityA ? 1 : -1;
+                }
+            }
+
+            // Сортировка по названию
             return (a.name || '').localeCompare(b.name || '');
         }
 
@@ -127,7 +163,6 @@
                     fetchSheet(SHEET_ID_LONG, "TDSheet!A2:Z")
                 ]);
 
-                // Обработка ошибок загрузки данных
                 if (!Array.isArray(shortData) || !Array.isArray(longData)) {
                     throw new Error("Некорректный формат данных");
                 }
@@ -135,7 +170,6 @@
                 const sizeMap = {};
                 const priceMap = {};
                 
-                // Обработка короткой таблицы
                 shortData.forEach(row => {
                     const article = row?.[0]?.trim();
                     const size = cleanSize(row?.[1]);
@@ -156,7 +190,6 @@
                     }
                 });
 
-                // Обработка длинной таблицы
                 const catalogItems = [];
                 const uniqueArticles = new Set();
 
@@ -168,11 +201,9 @@
                     const photos = row?.[23];
                     const longPrice = row?.[18];
 
-                    // Базовые проверки
                     if (!article || !name || type !== "Взуття") return;
                     if (uniqueArticles.has(article)) return;
 
-                    // Создание объекта товара
                     const product = {
                         article,
                         name,
@@ -183,14 +214,12 @@
                         price: formatPrice(priceMap[article] || longPrice)
                     };
 
-                    // Применение фильтров
                     if (validateProduct(product)) {
                         uniqueArticles.add(article);
                         catalogItems.push(product);
                     }
                 });
 
-                // Сортировка и отображение
                 if (catalogItems.length > 0) {
                     catalogItems.sort(sortProducts);
                     catalogElement.innerHTML = catalogItems.map(item => `
