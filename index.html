@@ -6,6 +6,7 @@
     <title>Каталог кроссовок</title>
     <link rel="icon" href="data:,">
     <style>
+        /* Стили остаются без изменений */
         body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background: #f9f9f9; }
         h1 { margin-bottom: 20px; }
         #catalog { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
@@ -40,24 +41,26 @@
                 "штани", "боксерки", "гетри", "кофта"
             ],
             typePriority: {
-                'Кросівки': 1,    // Основная категория
-                'Кеди': 2,       // Следующая после кроссовок
-                'Черевики': 3,   // После кед
-                'default': 5,    // Все остальные типы
-                'Аквашузи': 6,   // В самом низу
-                'Бутси': 7,      // В самом низу
-                'Крокси': 8,     // В самом низу
-                'Коралки': 8,    // В самом низу
-                "В'єтнамки": 8   // В самом низу
+                'Кросівки': 1,
+                'Кеди': 2,
+                'Черевики': 3,
+                'default': 4,
+                'Аквашузи': 5,
+                'Бутси': 5,
+                'Крокси': 5,
+                'Коралки': 5,
+                "В'єтнамки": 5
             },
-            lowPriorityNames: [
-                'Кросівки',
+            lowPriorityTypes: [
+                'Аквашузи',
+                'Бутси',
                 'Крокси',
                 'Коралки',
                 "В'єтнамки"
             ]
         };
 
+        // Обработка изображений (без изменений)
         function processImageUrl(originalUrl) {
             if (!originalUrl) return null;
             try {
@@ -117,39 +120,41 @@
         }
 
         function sortProducts(a, b) {
-            // Определяем тип с учетом синонимов
-            const resolveType = (type) => {
+            // Определение типа товара
+            const resolveType = (name, type) => {
+                const lowerName = name.toLowerCase();
                 const lowerType = type.toLowerCase();
-                if (lowerType.includes('аквашуз')) return 'Аквашузи';
-                if (lowerType.includes('бутс')) return 'Бутси';
-                if (lowerType.includes('крокс')) return 'Крокси';
-                if (lowerType.includes('корал')) return 'Коралки';
-                if (lowerType.includes("в'єтнам")) return "В'єтнамки";
+                
+                if (lowerType.includes('кросівки') || lowerName.includes('кросівки')) return 'Кросівки';
+                if (lowerType.includes('кеди') || lowerName.includes('кеди')) return 'Кеди';
+                if (lowerType.includes('черевики') || lowerName.includes('черевики')) return 'Черевики';
+                if (lowerName.includes('аквашуз')) return 'Аквашузи';
+                if (lowerName.includes('бутс')) return 'Бутси';
+                if (lowerName.includes('крокс')) return 'Крокси';
+                if (lowerName.includes('корал')) return 'Коралки';
+                if (lowerName.includes("в'єтнам")) return "В'єтнамки";
                 return type;
             };
 
-            const typeA = resolveType(a.type || '');
-            const typeB = resolveType(b.type || '');
+            const typeA = resolveType(a.name, a.type);
+            const typeB = resolveType(b.name, b.type);
 
             // Приоритет по типу
             const priorityA = FILTER_CONFIG.typePriority[typeA] || FILTER_CONFIG.typePriority.default;
             const priorityB = FILTER_CONFIG.typePriority[typeB] || FILTER_CONFIG.typePriority.default;
 
-            // Сначала сортируем по основному приоритету
+            // Основная сортировка по приоритету
             if (priorityA !== priorityB) return priorityA - priorityB;
 
-            // Для кроссовок: товары с названием только "Кросівки" - вниз
+            // Для кроссовок: товары с названием только "Кросівки" - вниз категории
             if (typeA === 'Кросівки' && typeB === 'Кросівки') {
-                const isLowPriorityA = FILTER_CONFIG.lowPriorityNames.some(name => a.name.trim() === name);
-                const isLowPriorityB = FILTER_CONFIG.lowPriorityNames.some(name => b.name.trim() === name);
-                
-                if (isLowPriorityA !== isLowPriorityB) {
-                    return isLowPriorityA ? 1 : -1;
-                }
+                const isGenericA = a.name.trim().toLowerCase() === 'кросівки';
+                const isGenericB = b.name.trim().toLowerCase() === 'кросівки';
+                if (isGenericA !== isGenericB) return isGenericA ? 1 : -1;
             }
 
             // Сортировка по названию
-            return (a.name || '').localeCompare(b.name || '');
+            return a.name.localeCompare(b.name);
         }
 
         async function loadCatalog() {
@@ -167,6 +172,7 @@
                     throw new Error("Некорректный формат данных");
                 }
 
+                // Обработка данных (без изменений)
                 const sizeMap = {};
                 const priceMap = {};
                 
@@ -220,6 +226,7 @@
                     }
                 });
 
+                // Сортировка и отображение
                 if (catalogItems.length > 0) {
                     catalogItems.sort(sortProducts);
                     catalogElement.innerHTML = catalogItems.map(item => `
