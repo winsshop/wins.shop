@@ -6,7 +6,6 @@
     <title>Каталог кроссовок</title>
     <link rel="icon" href="data:,">
     <style>
-        /* Стили остаются без изменений */
         body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background: #f9f9f9; }
         h1 { margin-bottom: 20px; }
         #catalog { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
@@ -33,12 +32,11 @@
         const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
         const IMAGE_PROXY = "https://images.weserv.nl/?url=";
 
-        // Настройки фильтрации и сортировки
         const FILTER_CONFIG = {
             excludedBrands: ["Joma"],
             excludedKeywords: [
-                "М'яч", "Пуховик", "плавки", "ракетка", 
-                "футболка", "чохол", "шкарпетки", "шорти", 
+                "М'яч", "Пуховик", "плавки", "ракетка",
+                "футболка", "чохол", "шкарпетки", "шорти",
                 "штани", "боксерки", "гетри", "кофта"
             ],
             typePriority: {
@@ -50,134 +48,175 @@
         };
 
         function processImageUrl(originalUrl) {
-            /* Прежняя реализация обработки изображений */
+            if (!originalUrl) return null;
+            try {
+                const url = new URL(originalUrl);
+                if (url.hostname === '95.216.46.104') {
+                    return IMAGE_PROXY + encodeURIComponent(url.href);
+                }
+                return originalUrl;
+            } catch {
+                return null;
+            }
         }
 
         function extractFirstPhoto(photoString) {
-            /* Прежняя реализация извлечения фото */
+            if (!photoString) return null;
+            const photos = photoString.split(';')
+                .map(url => url.trim())
+                .filter(url => url.startsWith('http'));
+            return photos.length > 0 ? photos[0] : null;
         }
 
         async function fetchSheet(sheetId, range) {
-            /* Прежняя реализация загрузки данных */
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                return data.values || [];
+            } catch (error) {
+                console.error(`Error loading (${range}):`, error);
+                return [];
+            }
         }
 
         function formatPrice(price) {
-            /* Прежняя реализация форматирования цены */
+            if (!price) return "Цена не указана";
+            const numericPrice = parseFloat(price.toString().replace(/\s/g, '').replace(',', '.'));
+            return isNaN(numericPrice) ? "Цена не указана" : `${numericPrice.toLocaleString('ru-RU')} ₴`;
         }
 
         function cleanSize(size) {
-            /* Прежняя реализация очистки размеров */
+            if (!size) return "";
+            return size.toString().replace('EU', '').replace('US', '').trim();
         }
 
-        // Новая функция для проверки товара на фильтры
         function validateProduct(item) {
+            if (!item || !item.name || !item.brand) return false;
+            
+            if (FILTER_CONFIG.excludedBrands.includes(item.brand.trim())) return false;
+            
             const lowerName = item.name.toLowerCase();
-            
-            // Проверка на исключенные бренды
-            if (FILTER_CONFIG.excludedBrands.includes(item.brand)) return false;
-            
-            // Проверка на запрещенные ключевые слова
             const hasExcludedKeyword = FILTER_CONFIG.excludedKeywords.some(keyword =>
                 lowerName.includes(keyword.toLowerCase())
             );
-            if (hasExcludedKeyword) return false;
             
-            return true;
+            return !hasExcludedKeyword;
         }
 
-        // Новая функция для сортировки товаров
         function sortProducts(a, b) {
-            const priorityA = FILTER_CONFIG.typePriority[a.type] || FILTER_CONFIG.typePriority.default;
-            const priorityB = FILTER_CONFIG.typePriority[b.type] || FILTER_CONFIG.typePriority.default;
+            const typeA = (a.type || '').trim();
+            const typeB = (b.type || '').trim();
             
-            // Сначала сортируем по приоритету типа
+            const priorityA = FILTER_CONFIG.typePriority[typeA] || FILTER_CONFIG.typePriority.default;
+            const priorityB = FILTER_CONFIG.typePriority[typeB] || FILTER_CONFIG.typePriority.default;
+            
             if (priorityA !== priorityB) return priorityA - priorityB;
-            
-            // Затем по названию товара
-            return a.name.localeCompare(b.name);
+            return (a.name || '').localeCompare(b.name || '');
         }
 
         async function loadCatalog() {
             const catalogElement = document.getElementById("catalog");
             
             try {
+                catalogElement.innerHTML = '<div class="loading">🔄 Загружаем товары...</div>';
+                
                 const [shortData, longData] = await Promise.all([
                     fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:Z"),
                     fetchSheet(SHEET_ID_LONG, "TDSheet!A2:Z")
                 ]);
 
-                if (!shortData.length || !longData.length) {
-                    throw new Error("Получены пустые данные из таблиц");
+                // Обработка ошибок загрузки данных
+                if (!Array.isArray(shortData) || !Array.isArray(longData)) {
+                    throw new Error("Некорректный формат данных");
                 }
 
-                // Обработка короткой таблицы (прежняя реализация)
                 const sizeMap = {};
                 const priceMap = {};
                 
+                // Обработка короткой таблицы
                 shortData.forEach(row => {
-                    /* Прежняя обработка размеров и цен */
+                    const article = row?.[0]?.trim();
+                    const size = cleanSize(row?.[1]);
+                    const price = row?.[2];
+
+                    if (article) {
+                        if (!sizeMap[article]) sizeMap[article] = new Set();
+                        if (size) sizeMap[article].add(size);
+                        
+                        if (price) {
+                            const numericPrice = parseFloat(price.toString().replace(/\s/g, '').replace(',', '.'));
+                            if (!isNaN(numericPrice)) {
+                                if (!priceMap[article] || numericPrice < priceMap[article]) {
+                                    priceMap[article] = numericPrice;
+                                }
+                            }
+                        }
+                    }
                 });
 
-                // Формируем каталог с новыми фильтрами
+                // Обработка длинной таблицы
                 const catalogItems = [];
                 const uniqueArticles = new Set();
 
                 longData.forEach(row => {
-                    const article = row[0];
-                    const name = row[1];
-                    const type = row[16];
-                    const brand = row[15];
-                    const photos = row[23];
-                    const longPrice = row[18];
+                    const article = row?.[0]?.trim();
+                    const name = row?.[1]?.trim();
+                    const type = row?.[16]?.trim();
+                    const brand = row?.[15]?.trim();
+                    const photos = row?.[23];
+                    const longPrice = row?.[18];
 
-                    // Основные фильтры
+                    // Базовые проверки
                     if (!article || !name || type !== "Взуття") return;
                     if (uniqueArticles.has(article)) return;
-                    
-                    // Создаем объект товара
+
+                    // Создание объекта товара
                     const product = {
                         article,
-                        name: name.trim(),
-                        brand: (brand || "").trim(),
-                        type: (type || "").trim(),
+                        name,
+                        brand: brand || "Не указан",
+                        type: type || "Другой тип",
                         photo: processImageUrl(extractFirstPhoto(photos)),
                         sizes: sizeMap[article] ? Array.from(sizeMap[article]).sort() : ["Нет данных"],
                         price: formatPrice(priceMap[article] || longPrice)
                     };
-                    
-                    // Применяем дополнительные фильтры
+
+                    // Применение фильтров
                     if (validateProduct(product)) {
                         uniqueArticles.add(article);
                         catalogItems.push(product);
                     }
                 });
 
-                // Сортируем товары
-                catalogItems.sort(sortProducts);
-
-                // Отображаем каталог (прежняя реализация рендеринга)
-                catalogElement.innerHTML = catalogItems.map(item => `
-                    <div class="item">
-                        <img src="${item.photo || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='}" 
-                             alt="${item.name}"
-                             onerror="this.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='">
-                        <h3>${item.name}</h3>
-                        <p><strong>Бренд:</strong> ${item.brand}</p>
-                        <p><strong>Артикул:</strong> ${item.article}</p>
-                        <p><strong>Тип:</strong> ${item.type}</p>
-                        <p><strong>Размеры:</strong></p>
-                        <div class="sizes">
-                            ${item.sizes.map(size => `<span class="size">${size}</span>`).join('')}
+                // Сортировка и отображение
+                if (catalogItems.length > 0) {
+                    catalogItems.sort(sortProducts);
+                    catalogElement.innerHTML = catalogItems.map(item => `
+                        <div class="item">
+                            <img src="${item.photo || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='}" 
+                                 alt="${item.name}"
+                                 onerror="this.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='">
+                            <h3>${item.name}</h3>
+                            <p><strong>Бренд:</strong> ${item.brand}</p>
+                            <p><strong>Тип:</strong> ${item.type}</p>
+                            <p><strong>Размеры:</strong></p>
+                            <div class="sizes">
+                                ${item.sizes.map(size => `<span class="size">${size}</span>`).join('')}
+                            </div>
+                            <p class="price"><strong>Цена:</strong> ${item.price}</p>
                         </div>
-                        <p class="price"><strong>Цена:</strong> ${item.price}</p>
-                    </div>
-                `).join("");
+                    `).join('');
+                } else {
+                    catalogElement.innerHTML = '<div class="error">😐 Нет данных для отображения.</div>';
+                }
 
             } catch (error) {
                 console.error("Ошибка загрузки каталога:", error);
                 catalogElement.innerHTML = `
                     <div class="error">
-                        ❌ Ошибка загрузки данных! Проверьте консоль (F12).
+                        ❌ Ошибка загрузки данных: ${error.message}
                     </div>
                 `;
             }
