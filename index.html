@@ -6,6 +6,7 @@
     <title>Каталог кроссовок</title>
     <link rel="icon" href="data:,">
     <style>
+        /* Ваши оригинальные стили без изменений */
         body {
             font-family: Arial, sans-serif;
             margin: 0;
@@ -106,68 +107,21 @@
             border-radius: 5px;
         }
 
-        #catalog { 
-            display: flex; 
-            flex-wrap: wrap; 
-            gap: 20px; 
-        }
-        .item { 
-            background: #fff; 
-            border: 1px solid #ccc; 
-            padding: 15px; 
-            width: 220px; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
-            border-radius: 8px; 
-        }
-        .item img { 
-            width: 100%; 
-            height: 150px; 
-            object-fit: cover; 
-            border-radius: 4px; 
-            background: #f5f5f5; 
-        }
-        .item h3 { 
-            margin: 10px 0 5px; 
-            font-size: 16px; 
-        }
-        .item p { 
-            margin: 4px 0; 
-            font-size: 14px; 
-        }
-        .loading { 
-            font-size: 18px; 
-            padding: 20px; 
-        }
-        .error { 
-            color: red; 
-            font-size: 18px; 
-            padding: 20px; 
-        }
-        .price { 
-            font-weight: bold; 
-            color: #e53935; 
-        }
-        .sizes { 
-            display: flex; 
-            flex-wrap: wrap; 
-            gap: 5px; 
-            margin-top: 10px; 
-        }
-        .size { 
-            padding: 4px 8px; 
-            background: #f0f0f0; 
-            border-radius: 3px; 
-            font-size: 12px; 
-        }
-        .no-stock {
-            color: #999;
-            font-size: 12px;
-            margin-top: 5px;
-        }
+        #catalog { display: flex; flex-wrap: wrap; gap: 20px; }
+        .item { background: #fff; border: 1px solid #ccc; padding: 15px; width: 220px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 8px; }
+        .item img { width: 100%; height: 150px; object-fit: cover; border-radius: 4px; background: #f5f5f5; }
+        .item h3 { margin: 10px 0 5px; }
+        .item p { margin: 4px 0; font-size: 14px; }
+        .loading { font-size: 18px; padding: 20px; }
+        .error { color: red; font-size: 18px; padding: 20px; }
+        .price { font-weight: bold; color: #e53935; }
+        .sizes { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+        .size { padding: 2px 5px; background: #f0f0f0; border-radius: 3px; }
     </style>
 </head>
 <body>
     <div class="filters">
+        <!-- Ваши оригинальные фильтры без изменений -->
         <div class="filter-section">
             <div class="filter-title">Размер</div>
             <select class="size-system-selector" id="sizeSystem">
@@ -206,28 +160,21 @@
     </div>
 
     <script>
-        // Тестовые данные
+        // Добавленные данные и логика
         const testProducts = [
             {
-                title: "Кроссовки Nike Air Max",
+                title: "Кроссовки X",
                 brand: "Nike",
-                price: "₴3 499",
-                image: "https://via.placeholder.com/200x150?text=Nike+Air+Max",
-                sizes: [38, 39, 40, 41]
+                price: "₴2 499",
+                image: "https://via.placeholder.com/220x150.png?text=Shoe+1",
+                sizes: [38, 39, 40]
             },
             {
-                title: "Кроссовки Adidas Ultraboost",
+                title: "Кроссовки Y",
                 brand: "Adidas",
-                price: "₴4 199",
-                image: "https://via.placeholder.com/200x150?text=Adidas+Ultraboost",
-                sizes: [40, 41, 42]
-            },
-            {
-                title: "Кроссовки Puma RS-X",
-                brand: "Puma",
-                price: "₴2 999",
-                image: "https://via.placeholder.com/200x150?text=Puma+RS-X",
-                sizes: []
+                price: "₴3 199",
+                image: "https://via.placeholder.com/220x150.png?text=Shoe+2",
+                sizes: [41, 42]
             }
         ];
 
@@ -247,25 +194,35 @@
             sizes: [],
             brands: [],
             minPrice: 0,
-            maxPrice: Infinity,
+            maxPrice: 10000,
             inStock: false
         };
 
-        async function loadCatalog() {
-            try {
-                // Имитация загрузки данных
-                await new Promise(resolve => setTimeout(resolve, 500));
-                allProducts = testProducts;
-                
-                initFilters();
-                updateCatalog();
-                document.querySelector('.loading').remove();
-            } catch (error) {
-                document.querySelector('.loading').textContent = 'Ошибка загрузки товаров';
-                console.error('Ошибка:', error);
-            }
+        // Инициализация
+        function init() {
+            allProducts = testProducts;
+            initFilters();
+            updateCatalog();
+            document.querySelector('.loading').remove();
         }
 
+        // Фильтрация
+        function updateCatalog() {
+            const filtered = allProducts.filter(product => {
+                const price = parseInt(product.price.replace(/[^\d]/g, ''));
+                return (
+                    (currentFilters.sizes.length === 0 || product.sizes.some(s => currentFilters.sizes.includes(s))) &&
+                    (currentFilters.brands.length === 0 || currentFilters.brands.includes(product.brand)) &&
+                    price >= currentFilters.minPrice &&
+                    price <= currentFilters.maxPrice &&
+                    (!currentFilters.inStock || product.sizes.length > 0)
+                );
+            });
+
+            renderCatalog(filtered);
+        }
+
+        // Отрисовка
         function renderCatalog(products) {
             const catalog = document.getElementById('catalog');
             catalog.innerHTML = products.map(product => `
@@ -275,20 +232,17 @@
                     <p>Бренд: ${product.brand}</p>
                     <p class="price">${product.price}</p>
                     <div class="sizes">
-                        ${product.sizes.map(size => 
-                            `<span class="size">${size}</span>`
-                        ).join('')}
+                        ${product.sizes.map(size => `<span class="size">${size}</span>`).join('')}
                     </div>
-                    ${product.sizes.length === 0 ? 
-                        '<p class="no-stock">Нет в наличии</p>' : ''}
                 </div>
             `).join('');
         }
 
+        // Инициализация фильтров
         function initFilters() {
             // Размеры
             const sizeSystemSelect = document.getElementById('sizeSystem');
-            const updateSizeFilters = () => {
+            const updateSizes = () => {
                 const system = sizeSystemSelect.value;
                 const sizes = sizeConversion.EU.sizes.map(euSize => ({
                     eu: euSize,
@@ -309,94 +263,63 @@
                     `).join('');
             };
 
-            sizeSystemSelect.addEventListener('change', updateSizeFilters);
-            updateSizeFilters();
-
-            // Обработчик размеров
-            document.getElementById('sizeContainer').addEventListener('change', e => {
-                if (e.target.classList.contains('size-checkbox')) {
-                    currentFilters.sizes = Array.from(
-                        document.querySelectorAll('.size-checkbox:checked')
-                    ).map(cb => parseInt(cb.value));
-                    updateCatalog();
-                }
-            });
+            sizeSystemSelect.addEventListener('change', updateSizes);
+            updateSizes();
 
             // Бренды
             const brands = [...new Set(allProducts.map(p => p.brand))];
-            document.getElementById('brandContainer').innerHTML = brands.map(brand => `
-                <label class="brand-label">
-                    <input type="checkbox" value="${brand}">
-                    ${brand}
-                </label>
-            `).join('');
+            document.getElementById('brandContainer').innerHTML = brands
+                .map(brand => `
+                    <label class="brand-label">
+                        <input type="checkbox" value="${brand}">
+                        ${brand}
+                    </label>
+                `).join('');
 
-            // Обработчик брендов
-            document.getElementById('brandContainer').addEventListener('change', e => {
-                if (e.target.type === 'checkbox') {
-                    currentFilters.brands = Array.from(
-                        document.querySelectorAll('#brandContainer input:checked')
-                    ).map(cb => cb.value);
+            // Обработчики
+            document.addEventListener('change', e => {
+                if (e.target.classList.contains('size-checkbox')) {
+                    currentFilters.sizes = [...document.querySelectorAll('.size-checkbox:checked')]
+                        .map(cb => parseInt(cb.value));
+                    updateCatalog();
+                }
+                
+                if (e.target.parentElement.parentElement.id === 'brandContainer') {
+                    currentFilters.brands = [...document.querySelectorAll('#brandContainer input:checked')]
+                        .map(cb => cb.value);
+                    updateCatalog();
+                }
+
+                if (e.target.id === 'inStock') {
+                    currentFilters.inStock = e.target.checked;
                     updateCatalog();
                 }
             });
 
             // Цена
-            const prices = allProducts.map(p => parseInt(p.price.replace(/\D/g, '')));
-            const minPrice = Math.min(...prices);
-            const maxPrice = Math.max(...prices);
-
             const priceRange = document.getElementById('priceRange');
             const minPriceInput = document.getElementById('minPrice');
             const maxPriceInput = document.getElementById('maxPrice');
 
-            priceRange.min = minPrice;
-            priceRange.max = maxPrice;
-            priceRange.value = maxPrice;
-            minPriceInput.placeholder = minPrice;
-            maxPriceInput.placeholder = maxPrice;
-
-            const updatePriceFilters = () => {
-                currentFilters.minPrice = parseInt(minPriceInput.value) || minPrice;
-                currentFilters.maxPrice = parseInt(maxPriceInput.value) || maxPrice;
-                priceRange.value = currentFilters.maxPrice;
-                updateCatalog();
-            };
-
             priceRange.addEventListener('input', e => {
                 maxPriceInput.value = e.target.value;
-                updatePriceFilters();
+                currentFilters.maxPrice = parseInt(e.target.value);
+                updateCatalog();
             });
 
-            minPriceInput.addEventListener('input', updatePriceFilters);
-            maxPriceInput.addEventListener('input', updatePriceFilters);
+            minPriceInput.addEventListener('input', e => {
+                currentFilters.minPrice = parseInt(e.target.value) || 0;
+                updateCatalog();
+            });
 
-            // Наличие
-            document.getElementById('inStock').addEventListener('change', e => {
-                currentFilters.inStock = e.target.checked;
+            maxPriceInput.addEventListener('input', e => {
+                currentFilters.maxPrice = parseInt(e.target.value) || 10000;
                 updateCatalog();
             });
         }
 
-        function updateCatalog() {
-            const filtered = allProducts.filter(product => {
-                const price = parseInt(product.price.replace(/\D/g, ''));
-                const sizeMatch = currentFilters.sizes.length === 0 || 
-                    product.sizes.some(s => currentFilters.sizes.includes(s));
-                const brandMatch = currentFilters.brands.length === 0 ||
-                    currentFilters.brands.includes(product.brand);
-                const priceMatch = price >= currentFilters.minPrice && 
-                                  price <= currentFilters.maxPrice;
-                const stockMatch = !currentFilters.inStock || product.sizes.length > 0;
-
-                return sizeMatch && brandMatch && priceMatch && stockMatch;
-            });
-
-            renderCatalog(filtered);
-        }
-
-        // Запуск при загрузке
-        loadCatalog();
+        // Старт
+        setTimeout(init, 500); // Имитация загрузки данных
     </script>
 </body>
 </html>
