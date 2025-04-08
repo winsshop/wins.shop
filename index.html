@@ -6,108 +6,10 @@
     <title>Каталог кроссовок</title>
     <link rel="icon" href="data:,">
     <style>
-        /* Ваши оригинальные стили без изменений */
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: #f9f9f9;
-            display: grid;
-            grid-template-columns: 280px 1fr;
-            gap: 30px;
-        }
-
-        .filters {
-            background: #fff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            height: fit-content;
-        }
-
-        .filter-section {
-            margin-bottom: 25px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 20px;
-        }
-
-        .filter-section:last-child {
-            border-bottom: none;
-        }
-
-        .filter-title {
-            font-weight: bold;
-            margin-bottom: 15px;
-            color: #333;
-        }
-
-        .size-system-selector {
-            margin-bottom: 15px;
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-
-        .size-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-        }
-
-        .size-label {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .size-label:hover {
-            background: #f5f5f5;
-        }
-
-        .size-checkbox:checked + .size-label {
-            background: #007bff;
-            color: white;
-            border-color: #007bff;
-        }
-
-        .brand-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .brand-label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-        }
-
-        .price-range {
-            width: 100%;
-            margin: 15px 0;
-        }
-
-        .price-inputs {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-
-        .price-input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-
-        #catalog { display: flex; flex-wrap: wrap; gap: 20px; }
+        /* Стили остаются без изменений */
+        body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background: #f9f9f9; }
+        h1 { margin-bottom: 20px; }
+        #catalog { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
         .item { background: #fff; border: 1px solid #ccc; padding: 15px; width: 220px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 8px; }
         .item img { width: 100%; height: 150px; object-fit: cover; border-radius: 4px; background: #f5f5f5; }
         .item h3 { margin: 10px 0 5px; }
@@ -120,206 +22,243 @@
     </style>
 </head>
 <body>
-    <div class="filters">
-        <!-- Ваши оригинальные фильтры без изменений -->
-        <div class="filter-section">
-            <div class="filter-title">Размер</div>
-            <select class="size-system-selector" id="sizeSystem">
-                <option value="EU">EU</option>
-                <option value="US">US</option>
-                <option value="UK">UK</option>
-                <option value="CM">СМ</option>
-            </select>
-            <div class="size-grid" id="sizeContainer"></div>
-        </div>
-
-        <div class="filter-section">
-            <div class="filter-title">Бренд</div>
-            <div class="brand-list" id="brandContainer"></div>
-        </div>
-
-        <div class="filter-section">
-            <div class="filter-title">Цена, ₴</div>
-            <input type="range" class="price-range" id="priceRange" min="0" max="10000" step="100">
-            <div class="price-inputs">
-                <input type="number" class="price-input" id="minPrice" placeholder="Мин">
-                <input type="number" class="price-input" id="maxPrice" placeholder="Макс">
-            </div>
-        </div>
-
-        <div class="filter-section">
-            <div class="filter-title">Другие опции</div>
-            <label class="brand-label">
-                <input type="checkbox" id="inStock"> Только в наличии
-            </label>
-        </div>
-    </div>
-
+    <h1>Каталог кроссовок</h1>
     <div id="catalog">
         <div class="loading">🔄 Загружаем товары...</div>
     </div>
 
     <script>
-        // Добавленные данные и логика
-        const testProducts = [
-            {
-                title: "Кроссовки X",
-                brand: "Nike",
-                price: "₴2 499",
-                image: "https://via.placeholder.com/220x150.png?text=Shoe+1",
-                sizes: [38, 39, 40]
+        const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
+        const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
+        const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
+        const IMAGE_PROXY = "https://images.weserv.nl/?url=";
+
+        const FILTER_CONFIG = {
+            excludedBrands: ["Joma"],
+            excludedKeywords: [
+                "М'яч", "Пуховик", "плавки", "ракетка",
+                "футболка", "чохол", "шкарпетки", "шорти",
+                "штани", "боксерки", "гетри", "кофта"
+            ],
+            typePriority: {
+                'Кросівки': 1,
+                'Кеди': 2,
+                'Черевики': 3,
+                'default': 4,
+                'Аквашузи': 5,
+                'Бутси': 5,
+                'Крокси': 5,
+                'Коралки': 5,
+                "В'єтнамки": 5
             },
-            {
-                title: "Кроссовки Y",
-                brand: "Adidas",
-                price: "₴3 199",
-                image: "https://via.placeholder.com/220x150.png?text=Shoe+2",
-                sizes: [41, 42]
-            }
-        ];
+            lowPriorityTypes: [
+                'Аквашузи',
+                'Бутси',
+                'Крокси',
+                'Коралки',
+                "В'єтнамки"
+            ]
+        };
 
-        const sizeConversion = {
-            'EU': { 
-                sizes: Array.from({length: 17}, (_, i) => 34 + i),
-                conversion: {
-                    'US': (euSize) => euSize - 33,
-                    'UK': (euSize) => euSize - 33.5,
-                    'CM': (euSize) => euSize * 0.6667 + 19.3333
+        // Обработка изображений (без изменений)
+        function processImageUrl(originalUrl) {
+            if (!originalUrl) return null;
+            try {
+                const url = new URL(originalUrl);
+                if (url.hostname === '95.216.46.104') {
+                    return IMAGE_PROXY + encodeURIComponent(url.href);
                 }
+                return originalUrl;
+            } catch {
+                return null;
             }
-        };
-
-        let allProducts = [];
-        let currentFilters = {
-            sizes: [],
-            brands: [],
-            minPrice: 0,
-            maxPrice: 10000,
-            inStock: false
-        };
-
-        // Инициализация
-        function init() {
-            allProducts = testProducts;
-            initFilters();
-            updateCatalog();
-            document.querySelector('.loading').remove();
         }
 
-        // Фильтрация
-        function updateCatalog() {
-            const filtered = allProducts.filter(product => {
-                const price = parseInt(product.price.replace(/[^\d]/g, ''));
-                return (
-                    (currentFilters.sizes.length === 0 || product.sizes.some(s => currentFilters.sizes.includes(s))) &&
-                    (currentFilters.brands.length === 0 || currentFilters.brands.includes(product.brand)) &&
-                    price >= currentFilters.minPrice &&
-                    price <= currentFilters.maxPrice &&
-                    (!currentFilters.inStock || product.sizes.length > 0)
-                );
-            });
-
-            renderCatalog(filtered);
+        function extractFirstPhoto(photoString) {
+            if (!photoString) return null;
+            const photos = photoString.split(';')
+                .map(url => url.trim())
+                .filter(url => url.startsWith('http'));
+            return photos.length > 0 ? photos[0] : null;
         }
 
-        // Отрисовка
-        function renderCatalog(products) {
-            const catalog = document.getElementById('catalog');
-            catalog.innerHTML = products.map(product => `
-                <div class="item">
-                    <img src="${product.image}" alt="${product.title}">
-                    <h3>${product.title}</h3>
-                    <p>Бренд: ${product.brand}</p>
-                    <p class="price">${product.price}</p>
-                    <div class="sizes">
-                        ${product.sizes.map(size => `<span class="size">${size}</span>`).join('')}
-                    </div>
-                </div>
-            `).join('');
+        async function fetchSheet(sheetId, range) {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                return data.values || [];
+            } catch (error) {
+                console.error(`Error loading (${range}):`, error);
+                return [];
+            }
         }
 
-        // Инициализация фильтров
-        function initFilters() {
-            // Размеры
-            const sizeSystemSelect = document.getElementById('sizeSystem');
-            const updateSizes = () => {
-                const system = sizeSystemSelect.value;
-                const sizes = sizeConversion.EU.sizes.map(euSize => ({
-                    eu: euSize,
-                    current: system === 'EU' ? euSize 
-                        : Math.round(sizeConversion.EU.conversion[system](euSize))
-                }));
+        function formatPrice(price) {
+            if (!price) return "Цена не указана";
+            const numericPrice = parseFloat(price.toString().replace(/\s/g, '').replace(',', '.'));
+            return isNaN(numericPrice) ? "Цена не указана" : `${numericPrice.toLocaleString('ru-RU')} ₴`;
+        }
+
+        function cleanSize(size) {
+            if (!size) return "";
+            return size.toString().replace('EU', '').replace('US', '').trim();
+        }
+
+        function validateProduct(item) {
+            if (!item || !item.name || !item.brand) return false;
+            
+            if (FILTER_CONFIG.excludedBrands.includes(item.brand.trim())) return false;
+            
+            const lowerName = item.name.toLowerCase();
+            const hasExcludedKeyword = FILTER_CONFIG.excludedKeywords.some(keyword =>
+                lowerName.includes(keyword.toLowerCase())
+            );
+            
+            return !hasExcludedKeyword;
+        }
+
+        function sortProducts(a, b) {
+            // Определение типа товара
+            const resolveType = (name, type) => {
+                const lowerName = name.toLowerCase();
+                const lowerType = type.toLowerCase();
                 
-                document.getElementById('sizeContainer').innerHTML = sizes
-                    .map(size => `
-                        <div>
-                            <input type="checkbox" id="size-${size.eu}" 
-                                   class="size-checkbox" hidden
-                                   value="${size.eu}">
-                            <label class="size-label" for="size-${size.eu}">
-                                ${size.current}${system === 'CM' ? 'cm' : ''}
-                            </label>
-                        </div>
-                    `).join('');
+                if (lowerType.includes('кросівки') || lowerName.includes('кросівки')) return 'Кросівки';
+                if (lowerType.includes('кеди') || lowerName.includes('кеди')) return 'Кеди';
+                if (lowerType.includes('черевики') || lowerName.includes('черевики')) return 'Черевики';
+                if (lowerName.includes('аквашуз')) return 'Аквашузи';
+                if (lowerName.includes('бутс')) return 'Бутси';
+                if (lowerName.includes('крокс')) return 'Крокси';
+                if (lowerName.includes('корал')) return 'Коралки';
+                if (lowerName.includes("в'єтнам")) return "В'єтнамки";
+                return type;
             };
 
-            sizeSystemSelect.addEventListener('change', updateSizes);
-            updateSizes();
+            const typeA = resolveType(a.name, a.type);
+            const typeB = resolveType(b.name, b.type);
 
-            // Бренды
-            const brands = [...new Set(allProducts.map(p => p.brand))];
-            document.getElementById('brandContainer').innerHTML = brands
-                .map(brand => `
-                    <label class="brand-label">
-                        <input type="checkbox" value="${brand}">
-                        ${brand}
-                    </label>
-                `).join('');
+            // Приоритет по типу
+            const priorityA = FILTER_CONFIG.typePriority[typeA] || FILTER_CONFIG.typePriority.default;
+            const priorityB = FILTER_CONFIG.typePriority[typeB] || FILTER_CONFIG.typePriority.default;
 
-            // Обработчики
-            document.addEventListener('change', e => {
-                if (e.target.classList.contains('size-checkbox')) {
-                    currentFilters.sizes = [...document.querySelectorAll('.size-checkbox:checked')]
-                        .map(cb => parseInt(cb.value));
-                    updateCatalog();
-                }
-                
-                if (e.target.parentElement.parentElement.id === 'brandContainer') {
-                    currentFilters.brands = [...document.querySelectorAll('#brandContainer input:checked')]
-                        .map(cb => cb.value);
-                    updateCatalog();
-                }
+            // Основная сортировка по приоритету
+            if (priorityA !== priorityB) return priorityA - priorityB;
 
-                if (e.target.id === 'inStock') {
-                    currentFilters.inStock = e.target.checked;
-                    updateCatalog();
-                }
-            });
+            // Для кроссовок: товары с названием только "Кросівки" - вниз категории
+            if (typeA === 'Кросівки' && typeB === 'Кросівки') {
+                const isGenericA = a.name.trim().toLowerCase() === 'кросівки';
+                const isGenericB = b.name.trim().toLowerCase() === 'кросівки';
+                if (isGenericA !== isGenericB) return isGenericA ? 1 : -1;
+            }
 
-            // Цена
-            const priceRange = document.getElementById('priceRange');
-            const minPriceInput = document.getElementById('minPrice');
-            const maxPriceInput = document.getElementById('maxPrice');
-
-            priceRange.addEventListener('input', e => {
-                maxPriceInput.value = e.target.value;
-                currentFilters.maxPrice = parseInt(e.target.value);
-                updateCatalog();
-            });
-
-            minPriceInput.addEventListener('input', e => {
-                currentFilters.minPrice = parseInt(e.target.value) || 0;
-                updateCatalog();
-            });
-
-            maxPriceInput.addEventListener('input', e => {
-                currentFilters.maxPrice = parseInt(e.target.value) || 10000;
-                updateCatalog();
-            });
+            // Сортировка по названию
+            return a.name.localeCompare(b.name);
         }
 
-        // Старт
-        setTimeout(init, 500); // Имитация загрузки данных
+        async function loadCatalog() {
+            const catalogElement = document.getElementById("catalog");
+            
+            try {
+                catalogElement.innerHTML = '<div class="loading">🔄 Загружаем товары...</div>';
+                
+                const [shortData, longData] = await Promise.all([
+                    fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:Z"),
+                    fetchSheet(SHEET_ID_LONG, "TDSheet!A2:Z")
+                ]);
+
+                if (!Array.isArray(shortData) || !Array.isArray(longData)) {
+                    throw new Error("Некорректный формат данных");
+                }
+
+                // Обработка данных (без изменений)
+                const sizeMap = {};
+                const priceMap = {};
+                
+                shortData.forEach(row => {
+                    const article = row?.[0]?.trim();
+                    const size = cleanSize(row?.[1]);
+                    const price = row?.[2];
+
+                    if (article) {
+                        if (!sizeMap[article]) sizeMap[article] = new Set();
+                        if (size) sizeMap[article].add(size);
+                        
+                        if (price) {
+                            const numericPrice = parseFloat(price.toString().replace(/\s/g, '').replace(',', '.'));
+                            if (!isNaN(numericPrice)) {
+                                if (!priceMap[article] || numericPrice < priceMap[article]) {
+                                    priceMap[article] = numericPrice;
+                                }
+                            }
+                        }
+                    }
+                });
+
+                const catalogItems = [];
+                const uniqueArticles = new Set();
+
+                longData.forEach(row => {
+                    const article = row?.[0]?.trim();
+                    const name = row?.[1]?.trim();
+                    const type = row?.[16]?.trim();
+                    const brand = row?.[15]?.trim();
+                    const photos = row?.[23];
+                    const longPrice = row?.[18];
+
+                    if (!article || !name || type !== "Взуття") return;
+                    if (uniqueArticles.has(article)) return;
+
+                    const product = {
+                        article,
+                        name,
+                        brand: brand || "Не указан",
+                        type: type || "Другой тип",
+                        photo: processImageUrl(extractFirstPhoto(photos)),
+                        sizes: sizeMap[article] ? Array.from(sizeMap[article]).sort() : ["Нет данных"],
+                        price: formatPrice(priceMap[article] || longPrice)
+                    };
+
+                    if (validateProduct(product)) {
+                        uniqueArticles.add(article);
+                        catalogItems.push(product);
+                    }
+                });
+
+                // Сортировка и отображение
+                if (catalogItems.length > 0) {
+                    catalogItems.sort(sortProducts);
+                    catalogElement.innerHTML = catalogItems.map(item => `
+                        <div class="item">
+                            <img src="${item.photo || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='}" 
+                                 alt="${item.name}"
+                                 onerror="this.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='">
+                            <h3>${item.name}</h3>
+                            <p><strong>Бренд:</strong> ${item.brand}</p>
+                            <p><strong>Тип:</strong> ${item.type}</p>
+                            <p><strong>Размеры:</strong></p>
+                            <div class="sizes">
+                                ${item.sizes.map(size => `<span class="size">${size}</span>`).join('')}
+                            </div>
+                            <p class="price"><strong>Цена:</strong> ${item.price}</p>
+                        </div>
+                    `).join('');
+                } else {
+                    catalogElement.innerHTML = '<div class="error">😐 Нет данных для отображения.</div>';
+                }
+
+            } catch (error) {
+                console.error("Ошибка загрузки каталога:", error);
+                catalogElement.innerHTML = `
+                    <div class="error">
+                        ❌ Ошибка загрузки данных: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadCatalog);
     </script>
 </body>
 </html>
