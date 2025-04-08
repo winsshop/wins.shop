@@ -1,264 +1,239 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Каталог кроссовок</title>
-    <link rel="icon" href="data:,">
-    <style>
-        /* Стили остаются без изменений */
-        body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background: #f9f9f9; }
-        h1 { margin-bottom: 20px; }
-        #catalog { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
-        .item { background: #fff; border: 1px solid #ccc; padding: 15px; width: 220px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 8px; }
-        .item img { width: 100%; height: 150px; object-fit: cover; border-radius: 4px; background: #f5f5f5; }
-        .item h3 { margin: 10px 0 5px; }
-        .item p { margin: 4px 0; font-size: 14px; }
-        .loading { font-size: 18px; padding: 20px; }
-        .error { color: red; font-size: 18px; padding: 20px; }
-        .price { font-weight: bold; color: #e53935; }
-        .sizes { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
-        .size { padding: 2px 5px; background: #f0f0f0; border-radius: 3px; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Каталог кроссовок</title>
+  <link rel="icon" href="data:,">
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background: #f9f9f9; }
+    h1 { margin-bottom: 20px; }
+    #controls { margin-bottom: 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+    select, input[type="text"] {
+      padding: 6px 10px; font-size: 14px; border-radius: 5px;
+      border: 1px solid #ccc; min-width: 150px;
+    }
+    #catalog { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+    .item {
+      background: #fff; border: 1px solid #ccc; padding: 15px; width: 220px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 8px;
+    }
+    .item img { width: 100%; height: 150px; object-fit: cover; border-radius: 4px; background: #f5f5f5; }
+    .item h3 { margin: 10px 0 5px; }
+    .item p { margin: 4px 0; font-size: 14px; }
+    .price { font-weight: bold; color: #e53935; }
+    .sizes { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+    .size { padding: 2px 5px; background: #f0f0f0; border-radius: 3px; }
+    .loading { font-size: 18px; padding: 20px; }
+    .error { color: red; font-size: 18px; padding: 20px; }
+  </style>
 </head>
 <body>
-    <h1>Каталог кроссовок</h1>
-    <div id="catalog">
-        <div class="loading">🔄 Загружаем товары...</div>
-    </div>
+  <h1>Каталог кроссовок</h1>
 
-    <script>
-        const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
-        const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
-        const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
-        const IMAGE_PROXY = "https://images.weserv.nl/?url=";
+  <div id="controls">
+    <input type="text" id="searchInput" placeholder="Поиск по названию...">
+    <select id="brandFilter"><option value="">Все бренды</option></select>
+    <select id="sizeFilter"><option value="">Все размеры</option></select>
+    <select id="typeFilter"><option value="">Все типы</option></select>
+    <select id="sortSelect">
+      <option value="">Сортировка</option>
+      <option value="priceAsc">Цена: по возрастанию</option>
+      <option value="priceDesc">Цена: по убыванию</option>
+      <option value="popular">Популярные (заглушка)</option>
+    </select>
+  </div>
 
-        const FILTER_CONFIG = {
-            excludedBrands: ["Joma"],
-            excludedKeywords: [
-                "М'яч", "Пуховик", "плавки", "ракетка",
-                "футболка", "чохол", "шкарпетки", "шорти",
-                "штани", "боксерки", "гетри", "кофта"
-            ],
-            typePriority: {
-                'Кросівки': 1,
-                'Кеди': 2,
-                'Черевики': 3,
-                'default': 4,
-                'Аквашузи': 5,
-                'Бутси': 5,
-                'Крокси': 5,
-                'Коралки': 5,
-                "В'єтнамки": 5
-            },
-            lowPriorityTypes: [
-                'Аквашузи',
-                'Бутси',
-                'Крокси',
-                'Коралки',
-                "В'єтнамки"
-            ]
+  <div id="catalog"><div class="loading">🔄 Загружаем товары...</div></div>
+
+  <script>
+    const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
+    const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
+    const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
+    const IMAGE_PROXY = "https://images.weserv.nl/?url=";
+
+    const FILTER_CONFIG = {
+      excludedBrands: ["Joma"],
+      excludedKeywords: [
+        "М'яч", "Пуховик", "плавки", "ракетка",
+        "футболка", "чохол", "шкарпетки", "шорти",
+        "штани", "боксерки", "гетри", "кофта"
+      ],
+      typePriority: {
+        'Кросівки': 1, 'Кеди': 2, 'Черевики': 3,
+        'default': 4, 'Аквашузи': 5, 'Бутси': 5,
+        'Крокси': 5, 'Коралки': 5, "В'єтнамки": 5
+      }
+    };
+
+    function processImageUrl(url) {
+      try {
+        const parsed = new URL(url);
+        return parsed.hostname === '95.216.46.104' ? IMAGE_PROXY + encodeURIComponent(url) : url;
+      } catch { return null; }
+    }
+
+    function extractFirstPhoto(photoString) {
+      if (!photoString) return null;
+      return photoString.split(';').map(s => s.trim()).find(u => u.startsWith('http')) || null;
+    }
+
+    function formatPrice(price) {
+      const num = parseFloat(price?.toString().replace(/\s/g, '').replace(',', '.'));
+      return isNaN(num) ? "Цена не указана" : `${num.toLocaleString('ru-RU')} ₴`;
+    }
+
+    function cleanSize(size) {
+      return size?.replace(/(EU|US)/g, '').trim();
+    }
+
+    function validateProduct(item) {
+      if (!item.name || !item.brand) return false;
+      if (FILTER_CONFIG.excludedBrands.includes(item.brand.trim())) return false;
+      const nameLower = item.name.toLowerCase();
+      return !FILTER_CONFIG.excludedKeywords.some(k => nameLower.includes(k.toLowerCase()));
+    }
+
+    function resolveType(name, type) {
+      const lName = name.toLowerCase(), lType = type.toLowerCase();
+      if (lType.includes('кросівки') || lName.includes('кросівки')) return 'Кросівки';
+      if (lType.includes('кеди') || lName.includes('кеди')) return 'Кеди';
+      if (lType.includes('черевики') || lName.includes('черевики')) return 'Черевики';
+      if (lName.includes('аквашуз')) return 'Аквашузи';
+      if (lName.includes('бутс')) return 'Бутси';
+      if (lName.includes('крокс')) return 'Крокси';
+      if (lName.includes('корал')) return 'Коралки';
+      if (lName.includes("в'єтнам")) return "В'єтнамки";
+      return type;
+    }
+
+    let allProducts = [];
+    const catalogEl = document.getElementById("catalog");
+
+    async function fetchSheet(sheetId, range) {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      return data.values || [];
+    }
+
+    async function loadData() {
+      const [shortData, longData] = await Promise.all([
+        fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:Z"),
+        fetchSheet(SHEET_ID_LONG, "TDSheet!A2:Z")
+      ]);
+
+      const sizeMap = {}, priceMap = {}, result = [], seen = new Set();
+      shortData.forEach(row => {
+        const article = row?.[0]?.trim();
+        const size = cleanSize(row?.[1]);
+        const price = row?.[2];
+        if (!article) return;
+        sizeMap[article] = sizeMap[article] || new Set();
+        if (size) sizeMap[article].add(size);
+        const num = parseFloat(price?.toString().replace(/\s/g, '').replace(',', '.'));
+        if (!isNaN(num)) {
+          priceMap[article] = priceMap[article] ? Math.min(priceMap[article], num) : num;
+        }
+      });
+
+      longData.forEach(row => {
+        const article = row?.[0]?.trim();
+        const name = row?.[1]?.trim();
+        const type = row?.[16]?.trim();
+        const brand = row?.[15]?.trim();
+        const photos = row?.[23];
+        const longPrice = row?.[18];
+        if (!article || !name || type !== "Взуття" || seen.has(article)) return;
+        const product = {
+          article, name, brand: brand || "Не указан",
+          type: resolveType(name, type), photo: processImageUrl(extractFirstPhoto(photos)),
+          sizes: sizeMap[article] ? Array.from(sizeMap[article]).sort() : ["Нет данных"],
+          rawPrice: priceMap[article] || longPrice,
+          price: formatPrice(priceMap[article] || longPrice)
         };
-
-        // Обработка изображений (без изменений)
-        function processImageUrl(originalUrl) {
-            if (!originalUrl) return null;
-            try {
-                const url = new URL(originalUrl);
-                if (url.hostname === '95.216.46.104') {
-                    return IMAGE_PROXY + encodeURIComponent(url.href);
-                }
-                return originalUrl;
-            } catch {
-                return null;
-            }
+        if (validateProduct(product)) {
+          seen.add(article);
+          result.push(product);
         }
+      });
 
-        function extractFirstPhoto(photoString) {
-            if (!photoString) return null;
-            const photos = photoString.split(';')
-                .map(url => url.trim())
-                .filter(url => url.startsWith('http'));
-            return photos.length > 0 ? photos[0] : null;
-        }
+      allProducts = result;
+      populateFilters();
+      renderProducts(result);
+    }
 
-        async function fetchSheet(sheetId, range) {
-            const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
-            try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const data = await response.json();
-                return data.values || [];
-            } catch (error) {
-                console.error(`Error loading (${range}):`, error);
-                return [];
-            }
-        }
+    function populateFilters() {
+      const brandSet = new Set(), sizeSet = new Set(), typeSet = new Set();
+      allProducts.forEach(p => {
+        brandSet.add(p.brand);
+        p.sizes.forEach(s => sizeSet.add(s));
+        typeSet.add(p.type);
+      });
 
-        function formatPrice(price) {
-            if (!price) return "Цена не указана";
-            const numericPrice = parseFloat(price.toString().replace(/\s/g, '').replace(',', '.'));
-            return isNaN(numericPrice) ? "Цена не указана" : `${numericPrice.toLocaleString('ru-RU')} ₴`;
-        }
+      fillSelect('brandFilter', [...brandSet].sort());
+      fillSelect('sizeFilter', [...sizeSet].sort((a, b) => parseFloat(a) - parseFloat(b)));
+      fillSelect('typeFilter', [...typeSet].sort());
+    }
 
-        function cleanSize(size) {
-            if (!size) return "";
-            return size.toString().replace('EU', '').replace('US', '').trim();
-        }
+    function fillSelect(id, items) {
+      const select = document.getElementById(id);
+      items.forEach(val => {
+        const opt = document.createElement("option");
+        opt.value = val;
+        opt.textContent = val;
+        select.appendChild(opt);
+      });
+    }
 
-        function validateProduct(item) {
-            if (!item || !item.name || !item.brand) return false;
-            
-            if (FILTER_CONFIG.excludedBrands.includes(item.brand.trim())) return false;
-            
-            const lowerName = item.name.toLowerCase();
-            const hasExcludedKeyword = FILTER_CONFIG.excludedKeywords.some(keyword =>
-                lowerName.includes(keyword.toLowerCase())
-            );
-            
-            return !hasExcludedKeyword;
-        }
+    function renderProducts(products) {
+      catalogEl.innerHTML = products.length
+        ? products.map(item => `
+        <div class="item">
+          <img src="${item.photo || 'data:image/png;base64,...'}"
+               alt="${item.name}" onerror="this.src='data:image/png;base64,...'">
+          <h3>${item.name}</h3>
+          <p><strong>Бренд:</strong> ${item.brand}</p>
+          <p><strong>Тип:</strong> ${item.type}</p>
+          <p><strong>Размеры:</strong></p>
+          <div class="sizes">${item.sizes.map(s => `<span class="size">${s}</span>`).join('')}</div>
+          <p class="price"><strong>Цена:</strong> ${item.price}</p>
+        </div>`).join('')
+        : '<div class="error">😐 Нет товаров по выбранным параметрам.</div>';
+    }
 
-        function sortProducts(a, b) {
-            // Определение типа товара
-            const resolveType = (name, type) => {
-                const lowerName = name.toLowerCase();
-                const lowerType = type.toLowerCase();
-                
-                if (lowerType.includes('кросівки') || lowerName.includes('кросівки')) return 'Кросівки';
-                if (lowerType.includes('кеди') || lowerName.includes('кеди')) return 'Кеди';
-                if (lowerType.includes('черевики') || lowerName.includes('черевики')) return 'Черевики';
-                if (lowerName.includes('аквашуз')) return 'Аквашузи';
-                if (lowerName.includes('бутс')) return 'Бутси';
-                if (lowerName.includes('крокс')) return 'Крокси';
-                if (lowerName.includes('корал')) return 'Коралки';
-                if (lowerName.includes("в'єтнам")) return "В'єтнамки";
-                return type;
-            };
+    function applyFilters() {
+      const search = document.getElementById("searchInput").value.toLowerCase();
+      const brand = document.getElementById("brandFilter").value;
+      const size = document.getElementById("sizeFilter").value;
+      const type = document.getElementById("typeFilter").value;
+      const sort = document.getElementById("sortSelect").value;
 
-            const typeA = resolveType(a.name, a.type);
-            const typeB = resolveType(b.name, b.type);
+      let filtered = allProducts.filter(p =>
+        (!brand || p.brand === brand) &&
+        (!type || p.type === type) &&
+        (!size || p.sizes.includes(size)) &&
+        (!search || p.name.toLowerCase().includes(search))
+      );
 
-            // Приоритет по типу
-            const priorityA = FILTER_CONFIG.typePriority[typeA] || FILTER_CONFIG.typePriority.default;
-            const priorityB = FILTER_CONFIG.typePriority[typeB] || FILTER_CONFIG.typePriority.default;
+      if (sort === 'priceAsc') filtered.sort((a, b) => parseFloat(a.rawPrice) - parseFloat(b.rawPrice));
+      if (sort === 'priceDesc') filtered.sort((a, b) => parseFloat(b.rawPrice) - parseFloat(a.rawPrice));
+      if (sort === 'popular') filtered.sort(() => Math.random()); // пока заглушка
 
-            // Основная сортировка по приоритету
-            if (priorityA !== priorityB) return priorityA - priorityB;
+      renderProducts(filtered);
+    }
 
-            // Для кроссовок: товары с названием только "Кросівки" - вниз категории
-            if (typeA === 'Кросівки' && typeB === 'Кросівки') {
-                const isGenericA = a.name.trim().toLowerCase() === 'кросівки';
-                const isGenericB = b.name.trim().toLowerCase() === 'кросівки';
-                if (isGenericA !== isGenericB) return isGenericA ? 1 : -1;
-            }
+    let searchDebounce;
+    document.getElementById("searchInput").addEventListener("input", () => {
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(applyFilters, 300);
+    });
 
-            // Сортировка по названию
-            return a.name.localeCompare(b.name);
-        }
+    ["brandFilter", "sizeFilter", "typeFilter", "sortSelect"].forEach(id =>
+      document.getElementById(id).addEventListener("change", applyFilters)
+    );
 
-        async function loadCatalog() {
-            const catalogElement = document.getElementById("catalog");
-            
-            try {
-                catalogElement.innerHTML = '<div class="loading">🔄 Загружаем товары...</div>';
-                
-                const [shortData, longData] = await Promise.all([
-                    fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:Z"),
-                    fetchSheet(SHEET_ID_LONG, "TDSheet!A2:Z")
-                ]);
-
-                if (!Array.isArray(shortData) || !Array.isArray(longData)) {
-                    throw new Error("Некорректный формат данных");
-                }
-
-                // Обработка данных (без изменений)
-                const sizeMap = {};
-                const priceMap = {};
-                
-                shortData.forEach(row => {
-                    const article = row?.[0]?.trim();
-                    const size = cleanSize(row?.[1]);
-                    const price = row?.[2];
-
-                    if (article) {
-                        if (!sizeMap[article]) sizeMap[article] = new Set();
-                        if (size) sizeMap[article].add(size);
-                        
-                        if (price) {
-                            const numericPrice = parseFloat(price.toString().replace(/\s/g, '').replace(',', '.'));
-                            if (!isNaN(numericPrice)) {
-                                if (!priceMap[article] || numericPrice < priceMap[article]) {
-                                    priceMap[article] = numericPrice;
-                                }
-                            }
-                        }
-                    }
-                });
-
-                const catalogItems = [];
-                const uniqueArticles = new Set();
-
-                longData.forEach(row => {
-                    const article = row?.[0]?.trim();
-                    const name = row?.[1]?.trim();
-                    const type = row?.[16]?.trim();
-                    const brand = row?.[15]?.trim();
-                    const photos = row?.[23];
-                    const longPrice = row?.[18];
-
-                    if (!article || !name || type !== "Взуття") return;
-                    if (uniqueArticles.has(article)) return;
-
-                    const product = {
-                        article,
-                        name,
-                        brand: brand || "Не указан",
-                        type: type || "Другой тип",
-                        photo: processImageUrl(extractFirstPhoto(photos)),
-                        sizes: sizeMap[article] ? Array.from(sizeMap[article]).sort() : ["Нет данных"],
-                        price: formatPrice(priceMap[article] || longPrice)
-                    };
-
-                    if (validateProduct(product)) {
-                        uniqueArticles.add(article);
-                        catalogItems.push(product);
-                    }
-                });
-
-                // Сортировка и отображение
-                if (catalogItems.length > 0) {
-                    catalogItems.sort(sortProducts);
-                    catalogElement.innerHTML = catalogItems.map(item => `
-                        <div class="item">
-                            <img src="${item.photo || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='}" 
-                                 alt="${item.name}"
-                                 onerror="this.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='">
-                            <h3>${item.name}</h3>
-                            <p><strong>Бренд:</strong> ${item.brand}</p>
-                            <p><strong>Тип:</strong> ${item.type}</p>
-                            <p><strong>Размеры:</strong></p>
-                            <div class="sizes">
-                                ${item.sizes.map(size => `<span class="size">${size}</span>`).join('')}
-                            </div>
-                            <p class="price"><strong>Цена:</strong> ${item.price}</p>
-                        </div>
-                    `).join('');
-                } else {
-                    catalogElement.innerHTML = '<div class="error">😐 Нет данных для отображения.</div>';
-                }
-
-            } catch (error) {
-                console.error("Ошибка загрузки каталога:", error);
-                catalogElement.innerHTML = `
-                    <div class="error">
-                        ❌ Ошибка загрузки данных: ${error.message}
-                    </div>
-                `;
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', loadCatalog);
-    </script>
+    document.addEventListener('DOMContentLoaded', loadData);
+  </script>
 </body>
 </html>
