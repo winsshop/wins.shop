@@ -1,194 +1,334 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Каталог кроссовок</title>
-    <link rel="icon" href="data:,">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: #f9f9f9;
-            display: flex;
-        }
-        h1 {
-            margin-bottom: 20px;
-        }
-        #sidebar {
-            width: 250px;
-            padding-right: 20px;
-        }
-        #filters {
-            background: #fff;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        #filters h3 {
-            margin-top: 0;
-        }
-        #filters label {
-            display: block;
-            margin: 5px 0;
-        }
-        #filters input[type="checkbox"] {
-            margin-right: 5px;
-        }
-        #filters select {
-            width: 100%;
-            padding: 5px;
-            margin-top: 5px;
-        }
-        #main {
-            flex-grow: 1;
-        }
-        #search-bar {
-            margin-bottom: 20px;
-            display: flex;
-            gap: 10px;
-        }
-        #search-bar input[type="text"] {
-            flex-grow: 1;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        #search-bar select, #search-bar button {
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            background: #fff;
-            cursor: pointer;
-        }
-        #catalog {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-        .item {
-            background: #fff;
-            border: 1px solid #ccc;
-            padding: 15px;
-            width: 220px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            border-radius: 8px;
-        }
-        .item img {
-            width: 100%;
-            height: 150px;
-            object-fit: cover;
-            border-radius: 4px;
-            background: #f5f5f5;
-        }
-        .item h3 {
-            margin: 10px 0 5px;
-        }
-        .item p {
-            margin: 4px 0;
-            font-size: 14px;
-        }
-        .loading {
-            font-size: 18px;
-            padding: 20px;
-        }
-        .error {
-            color: red;
-            font-size: 18px;
-            padding: 20px;
-        }
-        .price {
-            font-weight: bold;
-            color: #e53935;
-        }
-        .sizes {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            margin-top: 5px;
-        }
-        .size {
-            padding: 2px 5px;
-            background: #f0f0f0;
-            border-radius: 3px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Каталог кроссовок</title>
+  <link rel="icon" href="data:,">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f9f9f9;
+      display: flex;
+    }
+
+    .sidebar {
+      width: 250px;
+      padding: 20px;
+      background: #fff;
+      border-right: 1px solid #ccc;
+    }
+
+    .sidebar h2 {
+      margin-top: 0;
+    }
+
+    .filter-section {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    .filter-section label {
+      display: block;
+      margin: 5px 0;
+    }
+
+    .filter-section input[type="checkbox"] {
+      margin-right: 8px;
+    }
+
+    .size-standard-select {
+      margin: 10px 0;
+      width: 100%;
+    }
+
+    .main-content {
+      flex-grow: 1;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    #searchInput {
+      width: 100%;
+      max-width: 400px;
+      margin: 0 auto 20px;
+      display: block;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    #catalog {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    .item {
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 15px;
+      width: 220px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      border-radius: 8px;
+    }
+
+    .item img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      border-radius: 4px;
+      background: #f5f5f5;
+    }
+
+    .item h3 {
+      margin: 10px 0 5px;
+    }
+
+    .item p {
+      margin: 4px 0;
+      font-size: 14px;
+    }
+
+    .price {
+      font-weight: bold;
+      color: #e53935;
+    }
+
+    .sizes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 5px;
+    }
+
+    .size {
+      padding: 2px 5px;
+      background: #f0f0f0;
+      border-radius: 3px;
+    }
+
+    .loading, .error {
+      font-size: 18px;
+      padding: 20px;
+      width: 100%;
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
-    <div id="sidebar">
-        <div id="filters">
-            <h3>Фильтры</h3>
-            <div id="brand-filters">
-                <h4>Бренды</h4>
-                <!-- Бренды будут добавлены динамически -->
-            </div>
-            <div id="size-filters">
-                <h4>Размеры</h4>
-                <div id="size-options">
-                    <!-- Размеры будут добавлены динамически -->
-                </div>
-                <label for="size-standard">Стандарт размеров:</label>
-                <select id="size-standard">
-                    <option value="EU">EU</option>
-                    <option value="US">US</option>
-                    <option value="UK">UK</option>
-                    <option value="CM">CM</option>
-                </select>
-            </div>
-            <div id="type-filters">
-                <h4>Типы</h4>
-                <!-- Типы будут добавлены динамически -->
-            </div>
-        </div>
+  <div class="sidebar">
+    <h2>Фильтры</h2>
+    <div class="filter-section">
+      <strong>Бренды</strong>
+      <div id="brandFilters"></div>
     </div>
-    <div id="main">
-        <h1>Каталог кроссовок</h1>
-        <div id="search-bar">
-            <input type="text" id="search-input" placeholder="Поиск по названию...">
-            <select id="sort-options">
-                <option value="default">По умолчанию</option>
-                <option value="price-asc">Цена: по возрастанию</option>
-                <option value="price-desc">Цена: по убыванию</option>
-                <option value="popularity">По популярности</option>
-            </select>
-            <button id="search-button">Поиск</button>
-        </div>
-        <div id="catalog">
-            <div class="loading">🔄 Загружаем товары...</div>
-        </div>
+    <div class="filter-section">
+      <strong>Размеры</strong>
+      <select id="sizeStandard" class="size-standard-select">
+        <option value="EU" selected>EU</option>
+        <option value="US">US</option>
+        <option value="UK">UK</option>
+        <option value="UA">UA</option>
+        <option value="CM">CM</option>
+      </select>
+      <div id="sizeFilters"></div>
     </div>
+    <div class="filter-section">
+      <strong>Типы</strong>
+      <div id="typeFilters"></div>
+    </div>
+  </div>
 
-    <script>
-        const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
-        const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
-        const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
-        const IMAGE_PROXY = "https://images.weserv.nl/?url=";
+  <div class="main-content">
+    <h1>Каталог кроссовок</h1>
+    <input type="text" id="searchInput" placeholder="Поиск по названию...">
+    <div id="catalog"><div class="loading">🔄 Загружаем товары...</div></div>
+  </div>
 
-        const FILTER_CONFIG = {
-            excludedBrands: ["Joma"],
-            excludedKeywords: [
-                "М'яч", "Пуховик", "плавки", "ракетка",
-                "футболка", "чохол", "шкарпетки", "шорти",
-                "штани", "боксерки", "гетри", "кофта"
-            ],
-            typePriority: {
-                'Кросівки': 1,
-                'Кеди': 2,
-                'Черевики': 3,
-                'Крокси': 4,
-                'default': 5
-            },
-            popularBrands: ["Adidas", "Nike", "Asics", "Puma"],
-            sizeStandards: ["EU", "US", "UK", "CM"]
+  <script>
+    const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
+    const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
+    const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
+    const IMAGE_PROXY = "https://images.weserv.nl/?url=";
+
+    const FILTER_CONFIG = {
+      excludedBrands: ["Joma"],
+      excludedKeywords: [
+        "М'яч", "Пуховик", "плавки", "ракетка",
+        "футболка", "чохол", "шкарпетки", "шорти",
+        "штани", "боксерки", "гетри", "кофта"
+      ],
+      typePriority: {
+        'Кросівки': 1,
+        'Кеди': 2,
+        'Черевики': 3,
+        'Крокси': 4,
+        'default': 10
+      }
+    };
+
+    let allProducts = [];
+
+    function processImageUrl(originalUrl) {
+      if (!originalUrl) return null;
+      try {
+        const url = new URL(originalUrl);
+        if (url.hostname === '95.216.46.104') {
+          return IMAGE_PROXY + encodeURIComponent(url.href);
+        }
+        return originalUrl;
+      } catch {
+        return null;
+      }
+    }
+
+    function extractFirstPhoto(photoString) {
+      if (!photoString) return null;
+      const photos = photoString.split(';').map(url => url.trim()).filter(url => url.startsWith('http'));
+      return photos.length > 0 ? photos[0] : null;
+    }
+
+    function formatPrice(price) {
+      if (!price) return "Цена не указана";
+      const numericPrice = parseFloat(price.toString().replace(/\s/g, '').replace(',', '.'));
+      return isNaN(numericPrice) ? "Цена не указана" : `${numericPrice.toLocaleString('ru-RU')} ₴`;
+    }
+
+    function cleanSize(size) {
+      return (size || '').toString().replace(/(EU|US|UK)/g, '').trim();
+    }
+
+    function validateProduct(item) {
+      if (!item || !item.name || !item.brand) return false;
+      if (FILTER_CONFIG.excludedBrands.includes(item.brand.trim())) return false;
+      const lowerName = item.name.toLowerCase();
+      return !FILTER_CONFIG.excludedKeywords.some(keyword => lowerName.includes(keyword.toLowerCase()));
+    }
+
+    async function fetchSheet(sheetId, range) {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        return data.values || [];
+      } catch {
+        return [];
+      }
+    }
+
+    function renderCatalog(products) {
+      const container = document.getElementById("catalog");
+      if (!products.length) {
+        container.innerHTML = `<div class="error">😐 Нет товаров по фильтрам</div>`;
+        return;
+      }
+
+      container.innerHTML = products.map(item => `
+        <div class="item">
+          <img src="${item.photo || 'data:image/png;base64,...'}" alt="${item.name}">
+          <h3>${item.name}</h3>
+          <p><strong>Бренд:</strong> ${item.brand}</p>
+          <p><strong>Тип:</strong> ${item.type}</p>
+          <p><strong>Размеры:</strong></p>
+          <div class="sizes">${item.sizes.map(size => `<span class="size">${size}</span>`).join('')}</div>
+          <p class="price"><strong>Цена:</strong> ${item.price}</p>
+        </div>
+      `).join('');
+    }
+
+    function applyFilters() {
+      const brandChecks = Array.from(document.querySelectorAll('#brandFilters input:checked')).map(el => el.value);
+      const typeChecks = Array.from(document.querySelectorAll('#typeFilters input:checked')).map(el => el.value);
+      const sizeChecks = Array.from(document.querySelectorAll('#sizeFilters input:checked')).map(el => el.value);
+      const query = document.getElementById('searchInput').value.toLowerCase();
+
+      const filtered = allProducts.filter(item => {
+        const matchesBrand = brandChecks.length === 0 || brandChecks.includes(item.brand);
+        const matchesType = typeChecks.length === 0 || typeChecks.includes(item.type);
+        const matchesSize = sizeChecks.length === 0 || item.sizes.some(size => sizeChecks.includes(size));
+        const matchesName = item.name.toLowerCase().includes(query);
+        return matchesBrand && matchesType && matchesSize && matchesName;
+      });
+
+      renderCatalog(filtered);
+    }
+
+    function renderFilterCheckboxes(id, items) {
+      const container = document.getElementById(id);
+      container.innerHTML = items.map(item => `
+        <label><input type="checkbox" value="${item}">${item}</label>
+      `).join('');
+      container.querySelectorAll('input').forEach(el => {
+        el.addEventListener('change', applyFilters);
+      });
+    }
+
+    async function loadCatalog() {
+      const [shortData, longData] = await Promise.all([
+        fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:Z"),
+        fetchSheet(SHEET_ID_LONG, "TDSheet!A2:Z")
+      ]);
+
+      const sizeMap = {}, priceMap = {};
+      shortData.forEach(row => {
+        const article = row[0]?.trim(), size = cleanSize(row[1]), price = row[2];
+        if (article) {
+          if (!sizeMap[article]) sizeMap[article] = new Set();
+          if (size) sizeMap[article].add(size);
+          const numPrice = parseFloat((price || '').replace(/\s/g, '').replace(',', '.'));
+          if (!isNaN(numPrice)) {
+            if (!priceMap[article] || numPrice < priceMap[article]) priceMap[article] = numPrice;
+          }
+        }
+      });
+
+      const brandSet = new Set(), typeSet = new Set(), sizeSet = new Set();
+      const uniqueArticles = new Set();
+      allProducts = [];
+
+      longData.forEach(row => {
+        const article = row[0]?.trim();
+        const name = row[1]?.trim();
+        const typeRaw = row[16]?.trim();
+        const brand = row[15]?.trim();
+        const photo = processImageUrl(extractFirstPhoto(row[23]));
+        const longPrice = row[18];
+        const type = typeRaw === 'Взуття' ? 'Кросівки' : typeRaw;
+
+        if (!article || !name || typeRaw !== "Взуття") return;
+        if (uniqueArticles.has(article)) return;
+
+        const sizes = sizeMap[article] ? Array.from(sizeMap[article]).sort() : [];
+        const product = {
+          article, name, brand: brand || "Не указан", type,
+          photo, sizes, price: formatPrice(priceMap[article] || longPrice)
         };
 
-        let catalogItems = [];
-        let filteredItems = [];
-        let selectedBrands = new Set();
-        let selectedSizes = new Set();
-        let selectedTypes = new Set();
-        let
-::contentReference[oaicite:0]{index=0}
- 
+        if (validateProduct(product)) {
+          allProducts.push(product);
+          uniqueArticles.add(article);
+          brandSet.add(product.brand);
+          typeSet.add(product.type);
+          product.sizes.forEach(s => sizeSet.add(s));
+        }
+      });
+
+      renderFilterCheckboxes("brandFilters", Array.from(brandSet).sort());
+      renderFilterCheckboxes("typeFilters", Array.from(typeSet).sort());
+      renderFilterCheckboxes("sizeFilters", Array.from(sizeSet).sort());
+      applyFilters();
+    }
+
+    document.getElementById("searchInput").addEventListener("input", applyFilters);
+    document.addEventListener("DOMContentLoaded", loadCatalog);
+  </script>
+</body>
+</html>
