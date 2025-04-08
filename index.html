@@ -1,239 +1,194 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Каталог кроссовок</title>
-  <link rel="icon" href="data:,">
-  <style>
-    body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background: #f9f9f9; }
-    h1 { margin-bottom: 20px; }
-    #controls { margin-bottom: 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
-    select, input[type="text"] {
-      padding: 6px 10px; font-size: 14px; border-radius: 5px;
-      border: 1px solid #ccc; min-width: 150px;
-    }
-    #catalog { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
-    .item {
-      background: #fff; border: 1px solid #ccc; padding: 15px; width: 220px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 8px;
-    }
-    .item img { width: 100%; height: 150px; object-fit: cover; border-radius: 4px; background: #f5f5f5; }
-    .item h3 { margin: 10px 0 5px; }
-    .item p { margin: 4px 0; font-size: 14px; }
-    .price { font-weight: bold; color: #e53935; }
-    .sizes { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
-    .size { padding: 2px 5px; background: #f0f0f0; border-radius: 3px; }
-    .loading { font-size: 18px; padding: 20px; }
-    .error { color: red; font-size: 18px; padding: 20px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Каталог кроссовок</title>
+    <link rel="icon" href="data:,">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f9f9f9;
+            display: flex;
+        }
+        h1 {
+            margin-bottom: 20px;
+        }
+        #sidebar {
+            width: 250px;
+            padding-right: 20px;
+        }
+        #filters {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        #filters h3 {
+            margin-top: 0;
+        }
+        #filters label {
+            display: block;
+            margin: 5px 0;
+        }
+        #filters input[type="checkbox"] {
+            margin-right: 5px;
+        }
+        #filters select {
+            width: 100%;
+            padding: 5px;
+            margin-top: 5px;
+        }
+        #main {
+            flex-grow: 1;
+        }
+        #search-bar {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        #search-bar input[type="text"] {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #search-bar select, #search-bar button {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fff;
+            cursor: pointer;
+        }
+        #catalog {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .item {
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 15px;
+            width: 220px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+        .item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 4px;
+            background: #f5f5f5;
+        }
+        .item h3 {
+            margin: 10px 0 5px;
+        }
+        .item p {
+            margin: 4px 0;
+            font-size: 14px;
+        }
+        .loading {
+            font-size: 18px;
+            padding: 20px;
+        }
+        .error {
+            color: red;
+            font-size: 18px;
+            padding: 20px;
+        }
+        .price {
+            font-weight: bold;
+            color: #e53935;
+        }
+        .sizes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 5px;
+        }
+        .size {
+            padding: 2px 5px;
+            background: #f0f0f0;
+            border-radius: 3px;
+        }
+    </style>
 </head>
 <body>
-  <h1>Каталог кроссовок</h1>
+    <div id="sidebar">
+        <div id="filters">
+            <h3>Фильтры</h3>
+            <div id="brand-filters">
+                <h4>Бренды</h4>
+                <!-- Бренды будут добавлены динамически -->
+            </div>
+            <div id="size-filters">
+                <h4>Размеры</h4>
+                <div id="size-options">
+                    <!-- Размеры будут добавлены динамически -->
+                </div>
+                <label for="size-standard">Стандарт размеров:</label>
+                <select id="size-standard">
+                    <option value="EU">EU</option>
+                    <option value="US">US</option>
+                    <option value="UK">UK</option>
+                    <option value="CM">CM</option>
+                </select>
+            </div>
+            <div id="type-filters">
+                <h4>Типы</h4>
+                <!-- Типы будут добавлены динамически -->
+            </div>
+        </div>
+    </div>
+    <div id="main">
+        <h1>Каталог кроссовок</h1>
+        <div id="search-bar">
+            <input type="text" id="search-input" placeholder="Поиск по названию...">
+            <select id="sort-options">
+                <option value="default">По умолчанию</option>
+                <option value="price-asc">Цена: по возрастанию</option>
+                <option value="price-desc">Цена: по убыванию</option>
+                <option value="popularity">По популярности</option>
+            </select>
+            <button id="search-button">Поиск</button>
+        </div>
+        <div id="catalog">
+            <div class="loading">🔄 Загружаем товары...</div>
+        </div>
+    </div>
 
-  <div id="controls">
-    <input type="text" id="searchInput" placeholder="Поиск по названию...">
-    <select id="brandFilter"><option value="">Все бренды</option></select>
-    <select id="sizeFilter"><option value="">Все размеры</option></select>
-    <select id="typeFilter"><option value="">Все типы</option></select>
-    <select id="sortSelect">
-      <option value="">Сортировка</option>
-      <option value="priceAsc">Цена: по возрастанию</option>
-      <option value="priceDesc">Цена: по убыванию</option>
-      <option value="popular">Популярные (заглушка)</option>
-    </select>
-  </div>
+    <script>
+        const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
+        const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
+        const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
+        const IMAGE_PROXY = "https://images.weserv.nl/?url=";
 
-  <div id="catalog"><div class="loading">🔄 Загружаем товары...</div></div>
-
-  <script>
-    const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
-    const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
-    const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
-    const IMAGE_PROXY = "https://images.weserv.nl/?url=";
-
-    const FILTER_CONFIG = {
-      excludedBrands: ["Joma"],
-      excludedKeywords: [
-        "М'яч", "Пуховик", "плавки", "ракетка",
-        "футболка", "чохол", "шкарпетки", "шорти",
-        "штани", "боксерки", "гетри", "кофта"
-      ],
-      typePriority: {
-        'Кросівки': 1, 'Кеди': 2, 'Черевики': 3,
-        'default': 4, 'Аквашузи': 5, 'Бутси': 5,
-        'Крокси': 5, 'Коралки': 5, "В'єтнамки": 5
-      }
-    };
-
-    function processImageUrl(url) {
-      try {
-        const parsed = new URL(url);
-        return parsed.hostname === '95.216.46.104' ? IMAGE_PROXY + encodeURIComponent(url) : url;
-      } catch { return null; }
-    }
-
-    function extractFirstPhoto(photoString) {
-      if (!photoString) return null;
-      return photoString.split(';').map(s => s.trim()).find(u => u.startsWith('http')) || null;
-    }
-
-    function formatPrice(price) {
-      const num = parseFloat(price?.toString().replace(/\s/g, '').replace(',', '.'));
-      return isNaN(num) ? "Цена не указана" : `${num.toLocaleString('ru-RU')} ₴`;
-    }
-
-    function cleanSize(size) {
-      return size?.replace(/(EU|US)/g, '').trim();
-    }
-
-    function validateProduct(item) {
-      if (!item.name || !item.brand) return false;
-      if (FILTER_CONFIG.excludedBrands.includes(item.brand.trim())) return false;
-      const nameLower = item.name.toLowerCase();
-      return !FILTER_CONFIG.excludedKeywords.some(k => nameLower.includes(k.toLowerCase()));
-    }
-
-    function resolveType(name, type) {
-      const lName = name.toLowerCase(), lType = type.toLowerCase();
-      if (lType.includes('кросівки') || lName.includes('кросівки')) return 'Кросівки';
-      if (lType.includes('кеди') || lName.includes('кеди')) return 'Кеди';
-      if (lType.includes('черевики') || lName.includes('черевики')) return 'Черевики';
-      if (lName.includes('аквашуз')) return 'Аквашузи';
-      if (lName.includes('бутс')) return 'Бутси';
-      if (lName.includes('крокс')) return 'Крокси';
-      if (lName.includes('корал')) return 'Коралки';
-      if (lName.includes("в'єтнам")) return "В'єтнамки";
-      return type;
-    }
-
-    let allProducts = [];
-    const catalogEl = document.getElementById("catalog");
-
-    async function fetchSheet(sheetId, range) {
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      return data.values || [];
-    }
-
-    async function loadData() {
-      const [shortData, longData] = await Promise.all([
-        fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:Z"),
-        fetchSheet(SHEET_ID_LONG, "TDSheet!A2:Z")
-      ]);
-
-      const sizeMap = {}, priceMap = {}, result = [], seen = new Set();
-      shortData.forEach(row => {
-        const article = row?.[0]?.trim();
-        const size = cleanSize(row?.[1]);
-        const price = row?.[2];
-        if (!article) return;
-        sizeMap[article] = sizeMap[article] || new Set();
-        if (size) sizeMap[article].add(size);
-        const num = parseFloat(price?.toString().replace(/\s/g, '').replace(',', '.'));
-        if (!isNaN(num)) {
-          priceMap[article] = priceMap[article] ? Math.min(priceMap[article], num) : num;
-        }
-      });
-
-      longData.forEach(row => {
-        const article = row?.[0]?.trim();
-        const name = row?.[1]?.trim();
-        const type = row?.[16]?.trim();
-        const brand = row?.[15]?.trim();
-        const photos = row?.[23];
-        const longPrice = row?.[18];
-        if (!article || !name || type !== "Взуття" || seen.has(article)) return;
-        const product = {
-          article, name, brand: brand || "Не указан",
-          type: resolveType(name, type), photo: processImageUrl(extractFirstPhoto(photos)),
-          sizes: sizeMap[article] ? Array.from(sizeMap[article]).sort() : ["Нет данных"],
-          rawPrice: priceMap[article] || longPrice,
-          price: formatPrice(priceMap[article] || longPrice)
+        const FILTER_CONFIG = {
+            excludedBrands: ["Joma"],
+            excludedKeywords: [
+                "М'яч", "Пуховик", "плавки", "ракетка",
+                "футболка", "чохол", "шкарпетки", "шорти",
+                "штани", "боксерки", "гетри", "кофта"
+            ],
+            typePriority: {
+                'Кросівки': 1,
+                'Кеди': 2,
+                'Черевики': 3,
+                'Крокси': 4,
+                'default': 5
+            },
+            popularBrands: ["Adidas", "Nike", "Asics", "Puma"],
+            sizeStandards: ["EU", "US", "UK", "CM"]
         };
-        if (validateProduct(product)) {
-          seen.add(article);
-          result.push(product);
-        }
-      });
 
-      allProducts = result;
-      populateFilters();
-      renderProducts(result);
-    }
-
-    function populateFilters() {
-      const brandSet = new Set(), sizeSet = new Set(), typeSet = new Set();
-      allProducts.forEach(p => {
-        brandSet.add(p.brand);
-        p.sizes.forEach(s => sizeSet.add(s));
-        typeSet.add(p.type);
-      });
-
-      fillSelect('brandFilter', [...brandSet].sort());
-      fillSelect('sizeFilter', [...sizeSet].sort((a, b) => parseFloat(a) - parseFloat(b)));
-      fillSelect('typeFilter', [...typeSet].sort());
-    }
-
-    function fillSelect(id, items) {
-      const select = document.getElementById(id);
-      items.forEach(val => {
-        const opt = document.createElement("option");
-        opt.value = val;
-        opt.textContent = val;
-        select.appendChild(opt);
-      });
-    }
-
-    function renderProducts(products) {
-      catalogEl.innerHTML = products.length
-        ? products.map(item => `
-        <div class="item">
-          <img src="${item.photo || 'data:image/png;base64,...'}"
-               alt="${item.name}" onerror="this.src='data:image/png;base64,...'">
-          <h3>${item.name}</h3>
-          <p><strong>Бренд:</strong> ${item.brand}</p>
-          <p><strong>Тип:</strong> ${item.type}</p>
-          <p><strong>Размеры:</strong></p>
-          <div class="sizes">${item.sizes.map(s => `<span class="size">${s}</span>`).join('')}</div>
-          <p class="price"><strong>Цена:</strong> ${item.price}</p>
-        </div>`).join('')
-        : '<div class="error">😐 Нет товаров по выбранным параметрам.</div>';
-    }
-
-    function applyFilters() {
-      const search = document.getElementById("searchInput").value.toLowerCase();
-      const brand = document.getElementById("brandFilter").value;
-      const size = document.getElementById("sizeFilter").value;
-      const type = document.getElementById("typeFilter").value;
-      const sort = document.getElementById("sortSelect").value;
-
-      let filtered = allProducts.filter(p =>
-        (!brand || p.brand === brand) &&
-        (!type || p.type === type) &&
-        (!size || p.sizes.includes(size)) &&
-        (!search || p.name.toLowerCase().includes(search))
-      );
-
-      if (sort === 'priceAsc') filtered.sort((a, b) => parseFloat(a.rawPrice) - parseFloat(b.rawPrice));
-      if (sort === 'priceDesc') filtered.sort((a, b) => parseFloat(b.rawPrice) - parseFloat(a.rawPrice));
-      if (sort === 'popular') filtered.sort(() => Math.random()); // пока заглушка
-
-      renderProducts(filtered);
-    }
-
-    let searchDebounce;
-    document.getElementById("searchInput").addEventListener("input", () => {
-      clearTimeout(searchDebounce);
-      searchDebounce = setTimeout(applyFilters, 300);
-    });
-
-    ["brandFilter", "sizeFilter", "typeFilter", "sortSelect"].forEach(id =>
-      document.getElementById(id).addEventListener("change", applyFilters)
-    );
-
-    document.addEventListener('DOMContentLoaded', loadData);
-  </script>
-</body>
-</html>
+        let catalogItems = [];
+        let filteredItems = [];
+        let selectedBrands = new Set();
+        let selectedSizes = new Set();
+        let selectedTypes = new Set();
+        let
+::contentReference[oaicite:0]{index=0}
+ 
