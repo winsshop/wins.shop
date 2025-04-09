@@ -9,83 +9,68 @@
     body {
       font-family: Arial, sans-serif;
       margin: 0;
+      padding: 0;
       background: #f9f9f9;
       display: flex;
     }
-    h1 {
-      margin: 20px;
-      text-align: center;
-      width: 100%;
-    }
-    #sidebar {
+
+    .sidebar {
       width: 250px;
-      background: #fff;
-      border-right: 1px solid #ddd;
       padding: 20px;
-      box-shadow: 2px 0 4px rgba(0,0,0,0.05);
-      position: sticky;
-      top: 0;
-      height: 100vh;
-      overflow-y: auto;
-    }
-    .filter-section {
-      margin-bottom: 20px;
-    }
-    .filter-section h3 {
-      margin-bottom: 10px;
-      cursor: pointer;
-    }
-    .filter-options {
-      display: none;
-      margin-left: 10px;
-    }
-    .filter-options input[type="checkbox"] {
-      margin-right: 5px;
-    }
-    .selected-filters {
-      margin-top: 10px;
-      font-size: 12px;
-      color: #333;
-    }
-    .selected-filters span {
-      background: #e0e0e0;
-      padding: 2px 6px;
-      margin: 2px;
-      border-radius: 4px;
-      display: inline-block;
-    }
-    .active {
-      font-weight: bold;
+      background: #fff;
+      border-right: 1px solid #ccc;
     }
 
-    #main {
+    .sidebar h2 {
+      margin-top: 0;
+    }
+
+    .filter-section {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    .filter-section label {
+      display: block;
+      margin: 5px 0;
+    }
+
+    .filter-section input[type="checkbox"] {
+      margin-right: 8px;
+    }
+
+    .size-standard-select {
+      margin: 10px 0;
+      width: 100%;
+    }
+
+    .main-content {
       flex-grow: 1;
       padding: 20px;
     }
-    #topbar {
-      display: flex;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      align-items: center;
-      margin-bottom: 20px;
+
+    h1 {
+      text-align: center;
     }
-    #search {
-      padding: 8px;
+
+    #searchInput {
+      width: 100%;
+      max-width: 400px;
+      margin: 0 auto 20px;
+      display: block;
+      padding: 10px;
       font-size: 16px;
-      width: 300px;
-      max-width: 100%;
-    }
-    #sort {
-      padding: 8px;
-      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
     }
 
     #catalog {
       display: flex;
       flex-wrap: wrap;
-      gap: 20px;
       justify-content: center;
+      gap: 20px;
     }
+
     .item {
       background: #fff;
       border: 1px solid #ccc;
@@ -93,8 +78,8 @@
       width: 220px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       border-radius: 8px;
-      text-align: center;
     }
+
     .item img {
       width: 100%;
       height: 150px;
@@ -102,29 +87,34 @@
       border-radius: 4px;
       background: #f5f5f5;
     }
+
     .item h3 {
       margin: 10px 0 5px;
     }
+
     .item p {
       margin: 4px 0;
       font-size: 14px;
     }
+
     .price {
       font-weight: bold;
       color: #e53935;
     }
+
     .sizes {
       display: flex;
       flex-wrap: wrap;
       gap: 5px;
       margin-top: 5px;
-      justify-content: center;
     }
+
     .size {
-      padding: 2px 6px;
+      padding: 2px 5px;
       background: #f0f0f0;
       border-radius: 3px;
     }
+
     .loading, .error {
       font-size: 18px;
       padding: 20px;
@@ -134,206 +124,211 @@
   </style>
 </head>
 <body>
-  <div id="sidebar">
+  <div class="sidebar">
+    <h2>Фильтры</h2>
     <div class="filter-section">
-      <h3 onclick="toggleFilter(this)">Бренды</h3>
-      <div class="filter-options" id="brandFilter"></div>
-      <div class="selected-filters" id="selectedBrands"></div>
+      <strong>Бренды</strong>
+      <div id="brandFilters"></div>
     </div>
     <div class="filter-section">
-      <h3 onclick="toggleFilter(this)">Размеры</h3>
-      <div class="filter-options" id="sizeFilter"></div>
-      <div class="selected-filters" id="selectedSizes"></div>
+      <strong>Размеры</strong>
+      <select id="sizeStandard" class="size-standard-select">
+        <option value="EU" selected>EU</option>
+        <option value="US">US</option>
+        <option value="UK">UK</option>
+        <option value="UA">UA</option>
+        <option value="CM">CM</option>
+      </select>
+      <div id="sizeFilters"></div>
     </div>
     <div class="filter-section">
-      <h3 onclick="toggleFilter(this)">Типы</h3>
-      <div class="filter-options" id="typeFilter"></div>
-      <div class="selected-filters" id="selectedTypes"></div>
+      <strong>Типы</strong>
+      <div id="typeFilters"></div>
     </div>
   </div>
 
-  <div id="main">
+  <div class="main-content">
     <h1>Каталог кроссовок</h1>
-    <div id="topbar">
-      <input type="text" id="search" placeholder="🔍 Поиск по названию...">
-      <select id="sort">
-        <option value="default">Сортировка: по умолчанию</option>
-        <option value="price">По цене</option>
-        <option value="popularity">По популярности</option>
-      </select>
-    </div>
-    <div id="catalog">
-      <div class="loading">🔄 Загружаем товары...</div>
-    </div>
+    <input type="text" id="searchInput" placeholder="Поиск по названию...">
+    <div id="catalog"><div class="loading">🔄 Загружаем товары...</div></div>
   </div>
 
   <script>
-const SHEET_ID_1 = '1Ndf2dPBn0HCO7ADihXMfwv-bNd0FVm56KDFIQmKSnjs'; // длинная
-const SHEET_ID_2 = '1bHwH6KrOZocJ5WRIhISIBwtdHh71-QNKNZohB9PA_Zw'; // короткая
-const API_KEY = 'AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ';
-const SHEET_NAME = 'TDSheet';
+    const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
+    const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
+    const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
+    const IMAGE_PROXY = "https://images.weserv.nl/?url=";
 
-let products = [];
-let filteredProducts = [];
-let selectedBrands = new Set();
-let selectedSizes = new Set();
-let selectedTypes = new Set();
-let searchQuery = '';
-let currentSort = 'default';
+    const FILTER_CONFIG = {
+      excludedBrands: ["Joma"],
+      excludedKeywords: [
+        "М'яч", "Пуховик", "плавки", "ракетка",
+        "футболка", "чохол", "шкарпетки", "шорти",
+        "штани", "боксерки", "гетри", "кофта"
+      ],
+      typePriority: {
+        'Кросівки': 1,
+        'Кеди': 2,
+        'Черевики': 3,
+        'Крокси': 4,
+        'default': 10
+      }
+    };
 
-const typePriority = ['Кросівки', 'Кеди', 'Черевики'];
-const brandPriority = ['Adidas', 'Nike', 'Asics', 'Puma'];
+    let allProducts = [];
 
-function fetchData() {
-  Promise.all([
-    fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID_1}/values/${SHEET_NAME}?key=${API_KEY}`)
-      .then(res => res.json()),
-    fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID_2}/values/${SHEET_NAME}?key=${API_KEY}`)
-      .then(res => res.json())
-  ])
-  .then(([data1, data2]) => {
-    const headers1 = data1.values[0];
-    const headers2 = data2.values[0];
-    const rows1 = data1.values.slice(1);
-    const rows2 = data2.values.slice(1);
+    function processImageUrl(originalUrl) {
+      if (!originalUrl) return null;
+      try {
+        const url = new URL(originalUrl);
+        if (url.hostname === '95.216.46.104') {
+          return IMAGE_PROXY + encodeURIComponent(url.href);
+        }
+        return originalUrl;
+      } catch {
+        return null;
+      }
+    }
 
-    const availabilityMap = {};
-    rows2.forEach(row => {
-      const rowData = Object.fromEntries(row.map((v, i) => [headers2[i], v]));
-      if (!availabilityMap[rowData['Артикул']]) availabilityMap[rowData['Артикул']] = [];
-      availabilityMap[rowData['Артикул']].push(rowData);
-    });
+    function extractFirstPhoto(photoString) {
+      if (!photoString) return null;
+      const photos = photoString.split(';').map(url => url.trim()).filter(url => url.startsWith('http'));
+      return photos.length > 0 ? photos[0] : null;
+    }
 
-    products = rows1.map(row => {
-      const rowData = Object.fromEntries(row.map((v, i) => [headers1[i], v]));
-      const art = rowData['Артикул'];
-      const name = rowData['Назва'];
-      const sizes = (availabilityMap[art] || []).map(r => r['Розмір']);
-      const price = availabilityMap[art]?.[0]?.['Ціна'] || '—';
-      const type = rowData['Тип'] || '';
-      const brand = rowData['Бренд'] || '';
-      const image = `https://7dreamsport.ua/image/cache/catalog/${art}-500x500.webp`;
+    function formatPrice(price) {
+      if (!price) return "Цена не указана";
+      const numericPrice = parseFloat(price.toString().replace(/\s/g, '').replace(',', '.'));
+      return isNaN(numericPrice) ? "Цена не указана" : `${numericPrice.toLocaleString('ru-RU')} ₴`;
+    }
 
-      return { art, name, sizes, price: parseFloat(price), brand, type, image };
-    });
+    function cleanSize(size) {
+      return (size || '').toString().replace(/(EU|US|UK)/g, '').trim();
+    }
 
-    renderFilters();
-    applyFilters();
-  });
-}
+    function validateProduct(item) {
+      if (!item || !item.name || !item.brand) return false;
+      if (FILTER_CONFIG.excludedBrands.includes(item.brand.trim())) return false;
+      const lowerName = item.name.toLowerCase();
+      return !FILTER_CONFIG.excludedKeywords.some(keyword => lowerName.includes(keyword.toLowerCase()));
+    }
 
-function renderFilters() {
-  const brandSet = new Set(products.map(p => p.brand));
-  const sizeSet = new Set(products.flatMap(p => p.sizes));
-  const typeSet = new Set(products.map(p => p.type).filter(t => t !== 'Взуття'));
+    async function fetchSheet(sheetId, range) {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        return data.values || [];
+      } catch {
+        return [];
+      }
+    }
 
-  const brandList = Array.from(brandSet).sort((a, b) => {
-    const aP = brandPriority.indexOf(a);
-    const bP = brandPriority.indexOf(b);
-    return (aP === -1 ? 999 : aP) - (bP === -1 ? 999 : bP);
-  });
+    function renderCatalog(products) {
+      const container = document.getElementById("catalog");
+      if (!products.length) {
+        container.innerHTML = `<div class="error">😐 Нет товаров по фильтрам</div>`;
+        return;
+      }
 
-  const typeList = Array.from(typeSet).sort((a, b) => {
-    const aP = typePriority.indexOf(a);
-    const bP = typePriority.indexOf(b);
-    return (aP === -1 ? 999 : aP) - (bP === -1 ? 999 : bP);
-  });
+      container.innerHTML = products.map(item => `
+        <div class="item">
+          <img src="${item.photo || 'data:image/png;base64,...'}" alt="${item.name}">
+          <h3>${item.name}</h3>
+          <p><strong>Бренд:</strong> ${item.brand}</p>
+          <p><strong>Тип:</strong> ${item.type}</p>
+          <p><strong>Размеры:</strong></p>
+          <div class="sizes">${item.sizes.map(size => `<span class="size">${size}</span>`).join('')}</div>
+          <p class="price"><strong>Цена:</strong> ${item.price}</p>
+        </div>
+      `).join('');
+    }
 
-  document.getElementById('brandFilter').innerHTML = brandList.map(b =>
-    `<label><input type="checkbox" onchange="toggleBrand('${b}')"> ${b}</label><br>`
-  ).join('');
+    function applyFilters() {
+      const brandChecks = Array.from(document.querySelectorAll('#brandFilters input:checked')).map(el => el.value);
+      const typeChecks = Array.from(document.querySelectorAll('#typeFilters input:checked')).map(el => el.value);
+      const sizeChecks = Array.from(document.querySelectorAll('#sizeFilters input:checked')).map(el => el.value);
+      const query = document.getElementById('searchInput').value.toLowerCase();
 
-  document.getElementById('typeFilter').innerHTML = typeList.map(t =>
-    `<label><input type="checkbox" onchange="toggleType('${t}')"> ${t}</label><br>`
-  ).join('');
+      const filtered = allProducts.filter(item => {
+        const matchesBrand = brandChecks.length === 0 || brandChecks.includes(item.brand);
+        const matchesType = typeChecks.length === 0 || typeChecks.includes(item.type);
+        const matchesSize = sizeChecks.length === 0 || item.sizes.some(size => sizeChecks.includes(size));
+        const matchesName = item.name.toLowerCase().includes(query);
+        return matchesBrand && matchesType && matchesSize && matchesName;
+      });
 
-  document.getElementById('sizeFilter').innerHTML = Array.from(sizeSet).sort().map(s =>
-    `<label><input type="checkbox" onchange="toggleSize('${s}')"> ${s}</label><br>`
-  ).join('');
-}
+      renderCatalog(filtered);
+    }
 
-function toggleBrand(brand) {
-  selectedBrands.has(brand) ? selectedBrands.delete(brand) : selectedBrands.add(brand);
-  updateSelected('selectedBrands', selectedBrands);
-  applyFilters();
-}
+    function renderFilterCheckboxes(id, items) {
+      const container = document.getElementById(id);
+      container.innerHTML = items.map(item => `
+        <label><input type="checkbox" value="${item}">${item}</label>
+      `).join('');
+      container.querySelectorAll('input').forEach(el => {
+        el.addEventListener('change', applyFilters);
+      });
+    }
 
-function toggleSize(size) {
-  selectedSizes.has(size) ? selectedSizes.delete(size) : selectedSizes.add(size);
-  updateSelected('selectedSizes', selectedSizes);
-  applyFilters();
-}
+    async function loadCatalog() {
+      const [shortData, longData] = await Promise.all([
+        fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:Z"),
+        fetchSheet(SHEET_ID_LONG, "TDSheet!A2:Z")
+      ]);
 
-function toggleType(type) {
-  selectedTypes.has(type) ? selectedTypes.delete(type) : selectedTypes.add(type);
-  updateSelected('selectedTypes', selectedTypes);
-  applyFilters();
-}
+      const sizeMap = {}, priceMap = {};
+      shortData.forEach(row => {
+        const article = row[0]?.trim(), size = cleanSize(row[1]), price = row[2];
+        if (article) {
+          if (!sizeMap[article]) sizeMap[article] = new Set();
+          if (size) sizeMap[article].add(size);
+          const numPrice = parseFloat((price || '').replace(/\s/g, '').replace(',', '.'));
+          if (!isNaN(numPrice)) {
+            if (!priceMap[article] || numPrice < priceMap[article]) priceMap[article] = numPrice;
+          }
+        }
+      });
 
-function updateSelected(id, set) {
-  document.getElementById(id).innerHTML = Array.from(set).map(s => `<span>${s}</span>`).join('');
-}
+      const brandSet = new Set(), typeSet = new Set(), sizeSet = new Set();
+      const uniqueArticles = new Set();
+      allProducts = [];
 
-function applyFilters() {
-  filteredProducts = products.filter(p =>
-    (selectedBrands.size === 0 || selectedBrands.has(p.brand)) &&
-    (selectedSizes.size === 0 || p.sizes.some(s => selectedSizes.has(s))) &&
-    (selectedTypes.size === 0 || selectedTypes.has(p.type)) &&
-    (p.name.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-  sortProducts();
-  renderProducts();
-}
+      longData.forEach(row => {
+        const article = row[0]?.trim();
+        const name = row[1]?.trim();
+        const typeRaw = row[16]?.trim();
+        const brand = row[15]?.trim();
+        const photo = processImageUrl(extractFirstPhoto(row[23]));
+        const longPrice = row[18];
+        const type = typeRaw === 'Взуття' ? 'Кросівки' : typeRaw;
 
-function sortProducts() {
-  if (currentSort === 'price') {
-    filteredProducts.sort((a, b) => a.price - b.price);
-  } else if (currentSort === 'popularity') {
-    filteredProducts.sort((a, b) => b.sizes.length - a.sizes.length);
-  } else {
-    filteredProducts.sort((a, b) => {
-      const aP = typePriority.indexOf(a.type);
-      const bP = typePriority.indexOf(b.type);
-      return (aP === -1 ? 999 : aP) - (bP === -1 ? 999 : bP);
-    });
-  }
-}
+        if (!article || !name || typeRaw !== "Взуття") return;
+        if (uniqueArticles.has(article)) return;
 
-function renderProducts() {
-  const catalog = document.getElementById('catalog');
-  catalog.innerHTML = filteredProducts.length ? '' : '<div class="error">Нет товаров по фильтрам 😢</div>';
-  filteredProducts.forEach(p => {
-    const item = document.createElement('div');
-    item.className = 'item';
-    item.innerHTML = `
-      <img src="${p.image}" onerror="this.src='https://via.placeholder.com/220x150?text=No+Image'">
-      <h3>${p.name}</h3>
-      <p>Бренд: ${p.brand}</p>
-      <p>Тип: ${p.type}</p>
-      <p class="price">${p.price ? p.price + ' грн' : '—'}</p>
-      <div class="sizes">${p.sizes.map(s => `<span class="size">${s}</span>`).join('')}</div>
-    `;
-    catalog.appendChild(item);
-  });
-}
+        const sizes = sizeMap[article] ? Array.from(sizeMap[article]).sort() : [];
+        const product = {
+          article, name, brand: brand || "Не указан", type,
+          photo, sizes, price: formatPrice(priceMap[article] || longPrice)
+        };
 
-document.getElementById('search').addEventListener('input', e => {
-  searchQuery = e.target.value;
-  applyFilters();
-});
+        if (validateProduct(product)) {
+          allProducts.push(product);
+          uniqueArticles.add(article);
+          brandSet.add(product.brand);
+          typeSet.add(product.type);
+          product.sizes.forEach(s => sizeSet.add(s));
+        }
+      });
 
-document.getElementById('sort').addEventListener('change', e => {
-  currentSort = e.target.value;
-  applyFilters();
-});
+      renderFilterCheckboxes("brandFilters", Array.from(brandSet).sort());
+      renderFilterCheckboxes("typeFilters", Array.from(typeSet).sort());
+      renderFilterCheckboxes("sizeFilters", Array.from(sizeSet).sort());
+      applyFilters();
+    }
 
-function toggleFilter(h3) {
-  const div = h3.nextElementSibling;
-  div.style.display = div.style.display === 'block' ? 'none' : 'block';
-}
-
-fetchData();
-
+    document.getElementById("searchInput").addEventListener("input", applyFilters);
+    document.addEventListener("DOMContentLoaded", loadCatalog);
   </script>
 </body>
 </html>
