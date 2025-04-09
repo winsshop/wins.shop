@@ -324,6 +324,14 @@
       renderFilterCheckboxes("brandFilters", Array.from(brandSet).sort());
       renderFilterCheckboxes("typeFilters", Array.from(typeSet).sort());
       renderFilterCheckboxes("sizeFilters", Array.from(sizeSet).sort());
+
+// Сортировка по приоритету типа
+allProducts.sort((a, b) => {
+  const priorityA = FILTER_CONFIG.typePriority[a.type] || FILTER_CONFIG.typePriority.default;
+  const priorityB = FILTER_CONFIG.typePriority[b.type] || FILTER_CONFIG.typePriority.default;
+  return priorityA - priorityB;
+});
+
       applyFilters();
     }
 
