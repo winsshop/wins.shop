@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Каталог кроссовок</title>
   <link rel="icon" href="data:,">
   <style>
@@ -19,10 +19,6 @@
       padding: 20px;
       background: #fff;
       border-right: 1px solid #ccc;
-    }
-
-    .sidebar h2 {
-      margin-top: 0;
     }
 
     .filter-section {
@@ -161,30 +157,17 @@
 
     const FILTER_CONFIG = {
       excludedBrands: ["Joma"],
-      excludedKeywords: [
-        "М'яч", "Пуховик", "плавки", "ракетка",
-        "футболка", "чохол", "шкарпетки", "шорти",
-        "штани", "боксерки", "гетри", "кофта"
-      ],
-      typePriority: {
-        'Кросівки': 1,
-        'Кеди': 2,
-        'Черевики': 3,
-        'Крокси': 4,
-        'default': 10
-      }
+      excludedKeywords: ["М'яч", "Пуховик", "плавки", "ракетка", "футболка", "чохол", "шкарпетки", "шорти", "штани", "боксерки", "гетри", "кофта"],
+      typePriority: { 'Кросівки': 1, 'Кеди': 2, 'Черевики': 3, 'default': 10 }
     };
 
     let allProducts = [];
 
-    function processImageUrl(originalUrl) {
-      if (!originalUrl) return null;
+    function processImageUrl(url) {
+      if (!url) return null;
       try {
-        const url = new URL(originalUrl);
-        if (url.hostname === '95.216.46.104') {
-          return IMAGE_PROXY + encodeURIComponent(url.href);
-        }
-        return originalUrl;
+        const parsed = new URL(url);
+        return parsed.hostname === '95.216.46.104' ? IMAGE_PROXY + encodeURIComponent(url) : url;
       } catch {
         return null;
       }
@@ -192,36 +175,32 @@
 
     function extractFirstPhoto(photoString) {
       if (!photoString) return null;
-      const photos = photoString.split(';').map(url => url.trim()).filter(url => url.startsWith('http'));
-      return photos.length > 0 ? photos[0] : null;
+      const photos = photoString.split(';').map(p => p.trim()).filter(p => p.startsWith('http'));
+      return photos[0] || null;
     }
 
     function formatPrice(price) {
-      if (!price) return "Цена не указана";
-      const numericPrice = parseFloat(price.toString().replace(/\s/g, '').replace(',', '.'));
-      return isNaN(numericPrice) ? "Цена не указана" : `${numericPrice.toLocaleString('ru-RU')} ₴`;
+      const numeric = parseFloat((price || '').toString().replace(/\s/g, '').replace(',', '.'));
+      return isNaN(numeric) ? "Цена не указана" : `${numeric.toLocaleString('ru-RU')} ₴`;
     }
 
     function cleanSize(size) {
-      return (size || '').toString().replace(/(EU|US|UK)/g, '').trim();
+      return (size || '').toString().replace(/(EU|US|UK)/gi, '').trim();
     }
 
     function validateProduct(item) {
-      if (!item || !item.name || !item.brand) return false;
+      if (!item?.name || !item?.brand) return false;
       if (FILTER_CONFIG.excludedBrands.includes(item.brand.trim())) return false;
-      const lowerName = item.name.toLowerCase();
-      return !FILTER_CONFIG.excludedKeywords.some(keyword => lowerName.includes(keyword.toLowerCase()));
+      const lower = item.name.toLowerCase();
+      return !FILTER_CONFIG.excludedKeywords.some(word => lower.includes(word.toLowerCase()));
     }
 
-    async function fetchSheet(sheetId, range) {
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
-      try {
-        const response = await fetch(url);
-        const data = await response.json();
-        return data.values || [];
-      } catch {
-        return [];
-      }
+    function sortProductsByType(products) {
+      return products.sort((a, b) => {
+        const pA = FILTER_CONFIG.typePriority[a.type] || FILTER_CONFIG.typePriority.default;
+        const pB = FILTER_CONFIG.typePriority[b.type] || FILTER_CONFIG.typePriority.default;
+        return pA - pB;
+      });
     }
 
     function renderCatalog(products) {
@@ -231,7 +210,8 @@
         return;
       }
 
-      container.innerHTML = products.map(item => `
+      const sorted = sortProductsByType(products);
+      container.innerHTML = sorted.map(item => `
         <div class="item">
           <img src="${item.photo || 'data:image/png;base64,...'}" alt="${item.name}">
           <h3>${item.name}</h3>
@@ -245,30 +225,33 @@
     }
 
     function applyFilters() {
-      const brandChecks = Array.from(document.querySelectorAll('#brandFilters input:checked')).map(el => el.value);
-      const typeChecks = Array.from(document.querySelectorAll('#typeFilters input:checked')).map(el => el.value);
-      const sizeChecks = Array.from(document.querySelectorAll('#sizeFilters input:checked')).map(el => el.value);
-      const query = document.getElementById('searchInput').value.toLowerCase();
+      const brands = [...document.querySelectorAll('#brandFilters input:checked')].map(el => el.value);
+      const types = [...document.querySelectorAll('#typeFilters input:checked')].map(el => el.value);
+      const sizes = [...document.querySelectorAll('#sizeFilters input:checked')].map(el => el.value);
+      const query = document.getElementById("searchInput").value.toLowerCase();
 
       const filtered = allProducts.filter(item => {
-        const matchesBrand = brandChecks.length === 0 || brandChecks.includes(item.brand);
-        const matchesType = typeChecks.length === 0 || typeChecks.includes(item.type);
-        const matchesSize = sizeChecks.length === 0 || item.sizes.some(size => sizeChecks.includes(size));
-        const matchesName = item.name.toLowerCase().includes(query);
-        return matchesBrand && matchesType && matchesSize && matchesName;
+        const matchBrand = !brands.length || brands.includes(item.brand);
+        const matchType = !types.length || types.includes(item.type);
+        const matchSize = !sizes.length || item.sizes.some(s => sizes.includes(s));
+        const matchName = item.name.toLowerCase().includes(query);
+        return matchBrand && matchType && matchSize && matchName;
       });
 
       renderCatalog(filtered);
     }
 
-    function renderFilterCheckboxes(id, items) {
+    function renderFilterCheckboxes(id, list) {
       const container = document.getElementById(id);
-      container.innerHTML = items.map(item => `
-        <label><input type="checkbox" value="${item}">${item}</label>
-      `).join('');
-      container.querySelectorAll('input').forEach(el => {
-        el.addEventListener('change', applyFilters);
-      });
+      container.innerHTML = list.map(item => `<label><input type="checkbox" value="${item}">${item}</label>`).join('');
+      container.querySelectorAll('input').forEach(el => el.addEventListener('change', applyFilters));
+    }
+
+    async function fetchSheet(sheetId, range) {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      return data.values || [];
     }
 
     async function loadCatalog() {
@@ -279,59 +262,52 @@
 
       const sizeMap = {}, priceMap = {};
       shortData.forEach(row => {
-        const article = row[0]?.trim(), size = cleanSize(row[1]), price = row[2];
-        if (article) {
-          if (!sizeMap[article]) sizeMap[article] = new Set();
-          if (size) sizeMap[article].add(size);
-          const numPrice = parseFloat((price || '').replace(/\s/g, '').replace(',', '.'));
-          if (!isNaN(numPrice)) {
-            if (!priceMap[article] || numPrice < priceMap[article]) priceMap[article] = numPrice;
-          }
+        const art = row[0]?.trim(), size = cleanSize(row[1]), price = row[2];
+        if (art) {
+          if (!sizeMap[art]) sizeMap[art] = new Set();
+          if (size) sizeMap[art].add(size);
+          const p = parseFloat((price || '').replace(/\s/g, '').replace(',', '.'));
+          if (!isNaN(p)) priceMap[art] = priceMap[art] ? Math.min(p, priceMap[art]) : p;
         }
       });
 
       const brandSet = new Set(), typeSet = new Set(), sizeSet = new Set();
-      const uniqueArticles = new Set();
+      const used = new Set();
       allProducts = [];
 
       longData.forEach(row => {
-        const article = row[0]?.trim();
-        const name = row[1]?.trim();
-        const typeRaw = row[16]?.trim();
-        const brand = row[15]?.trim();
+        const article = row[0]?.trim(), name = row[1]?.trim(), type = row[16]?.trim(), brand = row[15]?.trim();
         const photo = processImageUrl(extractFirstPhoto(row[23]));
         const longPrice = row[18];
-        const type = typeRaw === 'Взуття' ? 'Кросівки' : typeRaw;
 
-        if (!article || !name || typeRaw !== "Взуття") return;
-        if (uniqueArticles.has(article)) return;
+        if (!article || !name || used.has(article)) return;
+        used.add(article);
 
         const sizes = sizeMap[article] ? Array.from(sizeMap[article]).sort() : [];
-        const product = {
-          article, name, brand: brand || "Не указан", type,
-          photo, sizes, price: formatPrice(priceMap[article] || longPrice)
+        const prod = {
+          article, name,
+          brand: brand || "Не указан",
+          type: (type === "Взуття" ? "Кросівки" : type),
+          photo,
+          sizes,
+          price: formatPrice(priceMap[article] || longPrice)
         };
 
-        if (validateProduct(product)) {
-          allProducts.push(product);
-          uniqueArticles.add(article);
-          brandSet.add(product.brand);
-          typeSet.add(product.type);
-          product.sizes.forEach(s => sizeSet.add(s));
+        if (validateProduct(prod)) {
+          allProducts.push(prod);
+          brandSet.add(prod.brand);
+          typeSet.add(prod.type);
+          sizes.forEach(s => sizeSet.add(s));
         }
       });
 
       renderFilterCheckboxes("brandFilters", Array.from(brandSet).sort());
-      renderFilterCheckboxes("typeFilters", Array.from(typeSet).sort());
+      renderFilterCheckboxes("typeFilters", Array.from(typeSet).sort((a, b) => {
+        const pa = FILTER_CONFIG.typePriority[a] || 10;
+        const pb = FILTER_CONFIG.typePriority[b] || 10;
+        return pa - pb;
+      }));
       renderFilterCheckboxes("sizeFilters", Array.from(sizeSet).sort());
-
-// Сортировка по приоритету типа
-allProducts.sort((a, b) => {
-  const priorityA = FILTER_CONFIG.typePriority[a.type] || FILTER_CONFIG.typePriority.default;
-  const priorityB = FILTER_CONFIG.typePriority[b.type] || FILTER_CONFIG.typePriority.default;
-  return priorityA - priorityB;
-});
-
       applyFilters();
     }
 
