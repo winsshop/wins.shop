@@ -6,7 +6,6 @@
   <title>Каталог кроссовок</title>
   <link rel="icon" href="data:,">
   <style>
-    /* Все стили остаются без изменений */
     body {
       font-family: Arial, sans-serif;
       margin: 0;
@@ -22,9 +21,101 @@
       border-right: 1px solid #ccc;
     }
 
-    /* ... остальные стили без изменений ... */
+    .sidebar h2 {
+      margin-top: 0;
+    }
 
-    .error {
+    .filter-section {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    .filter-section label {
+      display: block;
+      margin: 5px 0;
+    }
+
+    .filter-section input[type="checkbox"] {
+      margin-right: 8px;
+    }
+
+    .size-standard-select {
+      margin: 10px 0;
+      width: 100%;
+    }
+
+    .main-content {
+      flex-grow: 1;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    #searchInput {
+      width: 100%;
+      max-width: 400px;
+      margin: 0 auto 20px;
+      display: block;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    #catalog {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    .item {
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 15px;
+      width: 220px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      border-radius: 8px;
+    }
+
+    .item img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      border-radius: 4px;
+      background: #f5f5f5;
+    }
+
+    .item h3 {
+      margin: 10px 0 5px;
+    }
+
+    .item p {
+      margin: 4px 0;
+      font-size: 14px;
+    }
+
+    .price {
+      font-weight: bold;
+      color: #e53935;
+    }
+
+    .sizes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 5px;
+    }
+
+    .size {
+      padding: 2px 5px;
+      background: #f0f0f0;
+      border-radius: 3px;
+    }
+
+    .loading, .error {
       font-size: 18px;
       padding: 20px;
       width: 100%;
@@ -34,7 +125,6 @@
 </head>
 <body>
   <div class="sidebar">
-    <!-- Фильтры без изменений -->
     <h2>Фильтры</h2>
     <div class="filter-section">
       <strong>Бренды</strong>
@@ -160,34 +250,12 @@
       const sizeChecks = Array.from(document.querySelectorAll('#sizeFilters input:checked')).map(el => el.value);
       const query = document.getElementById('searchInput').value.toLowerCase();
 
-      let filtered = allProducts.filter(item => {
+      const filtered = allProducts.filter(item => {
         const matchesBrand = brandChecks.length === 0 || brandChecks.includes(item.brand);
         const matchesType = typeChecks.length === 0 || typeChecks.includes(item.type);
         const matchesSize = sizeChecks.length === 0 || item.sizes.some(size => sizeChecks.includes(size));
         const matchesName = item.name.toLowerCase().includes(query);
         return matchesBrand && matchesType && matchesSize && matchesName;
-      });
-
-      // Сортировка по типам и названиям
-      filtered.sort((a, b) => {
-        // Приоритет типов
-        const priorityA = FILTER_CONFIG.typePriority[a.type] || FILTER_CONFIG.typePriority.default;
-        const priorityB = FILTER_CONFIG.typePriority[b.type] || FILTER_CONFIG.typePriority.default;
-        
-        if (priorityA !== priorityB) {
-          return priorityA - priorityB;
-        }
-
-        // Внутри категории "Кросівки" сортируем по названию
-        if (a.type === 'Кросівки' && b.type === 'Кросівки') {
-          const aIsGeneric = a.name.toLowerCase() === 'кросівки';
-          const bIsGeneric = b.name.toLowerCase() === 'кросівки';
-          
-          if (aIsGeneric && !bIsGeneric) return 1;
-          if (!aIsGeneric && bIsGeneric) return -1;
-        }
-
-        return a.name.localeCompare(b.name);
       });
 
       renderCatalog(filtered);
