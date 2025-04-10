@@ -23,6 +23,7 @@
       background: var(--light-gray);
       display: flex;
       color: #333;
+      min-height: 100vh;
     }
     
     .sidebar {
@@ -30,11 +31,11 @@
       background: white;
       border-right: 1px solid var(--medium-gray);
       box-shadow: var(--shadow);
-      height: 100vh;
       position: sticky;
       top: 0;
+      height: 100vh;
       overflow-y: auto;
-      transition: all 0.3s ease;
+      flex-shrink: 0; /* Этот параметр не позволит меню сжиматься */
     }
     
     .sidebar-header {
@@ -117,6 +118,7 @@
     .main-content {
       flex-grow: 1;
       padding: 30px;
+      min-width: 0; /* Важно для корректного flex-отображения */
     }
     
     .header {
@@ -473,8 +475,10 @@
 
     function sortBrands(brands) {
       return [...brands].sort((a, b) => {
-        const isAPopular = FILTER_CONFIG.popularBrands.includes(a);
-        const isBPopular = FILTER_CONFIG.popularBrands.includes(b);
+        const isAPopular = FILTER_CONFIG.popularBrands.some(brand => 
+          a.toLowerCase().includes(brand.toLowerCase()));
+        const isBPopular = FILTER_CONFIG.popularBrands.some(brand => 
+          b.toLowerCase().includes(brand.toLowerCase()));
         
         // Сначала популярные бренды
         if (isAPopular && !isBPopular) return -1;
@@ -482,7 +486,11 @@
         
         // Для популярных брендов используем их порядок в массиве popularBrands
         if (isAPopular && isBPopular) {
-          return FILTER_CONFIG.popularBrands.indexOf(a) - FILTER_CONFIG.popularBrands.indexOf(b);
+          const aIndex = FILTER_CONFIG.popularBrands.findIndex(brand => 
+            a.toLowerCase().includes(brand.toLowerCase()));
+          const bIndex = FILTER_CONFIG.popularBrands.findIndex(brand => 
+            b.toLowerCase().includes(brand.toLowerCase()));
+          return aIndex - bIndex;
         }
         
         // Для остальных брендов сортировка по алфавиту
@@ -494,6 +502,9 @@
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
       try {
         const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const data = await response.json();
         return data.values || [];
       } catch (error) {
@@ -559,7 +570,7 @@
       
       if (id === 'brandFilters') {
         container.innerHTML = sortedItems.map(item => `
-          <label class="${FILTER_CONFIG.popularBrands.includes(item) ? 'popular-brand' : ''}">
+          <label class="${FILTER_CONFIG.popularBrands.some(brand => item.toLowerCase().includes(brand.toLowerCase())) ? 'popular-brand' : ''}">
             <input type="checkbox" value="${item}">${item}
           </label>
         `).join('');
@@ -641,6 +652,20 @@
         updateCounter('brandCounter', 0);
         updateCounter('typeCounter', 0);
         updateCounter('sizeCounter', 0);
+
+        // По умолчанию разворачиваем фильтры
+        document.querySelectorAll('.filter-title').forEach(title => {
+          if (!title.classList.contains('collapsed')) {
+            title.classList.add('collapsed');
+            title.nextElementSibling.classList.add('collapsed');
+          }
+        });
+        // Разворачиваем первый фильтр (Бренды)
+        const firstFilter = document.querySelector('.filter-title');
+        if (firstFilter) {
+          firstFilter.classList.remove('collapsed');
+          firstFilter.nextElementSibling.classList.remove('collapsed');
+        }
 
         applyFilters();
       } catch (error) {
