@@ -13,46 +13,37 @@
       background: #f9f9f9;
       display: flex;
     }
-
     .sidebar {
       width: 250px;
       padding: 20px;
       background: #fff;
       border-right: 1px solid #ccc;
     }
-
     .sidebar h2 {
       margin-top: 0;
     }
-
     .filter-section {
       margin-bottom: 20px;
       text-align: left;
     }
-
     .filter-section label {
       display: block;
       margin: 5px 0;
     }
-
     .filter-section input[type="checkbox"] {
       margin-right: 8px;
     }
-
     .size-standard-select {
       margin: 10px 0;
       width: 100%;
     }
-
     .main-content {
       flex-grow: 1;
       padding: 20px;
     }
-
     h1 {
       text-align: center;
     }
-
     #searchInput {
       width: 100%;
       max-width: 400px;
@@ -63,14 +54,12 @@
       border: 1px solid #ccc;
       border-radius: 6px;
     }
-
     #catalog {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
       gap: 20px;
     }
-
     .item {
       background: #fff;
       border: 1px solid #ccc;
@@ -79,7 +68,6 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       border-radius: 8px;
     }
-
     .item img {
       width: 100%;
       height: 150px;
@@ -87,34 +75,28 @@
       border-radius: 4px;
       background: #f5f5f5;
     }
-
     .item h3 {
       margin: 10px 0 5px;
     }
-
     .item p {
       margin: 4px 0;
       font-size: 14px;
     }
-
     .price {
       font-weight: bold;
       color: #e53935;
     }
-
     .sizes {
       display: flex;
       flex-wrap: wrap;
       gap: 5px;
       margin-top: 5px;
     }
-
     .size {
       padding: 2px 5px;
       background: #f0f0f0;
       border-radius: 3px;
     }
-
     .loading, .error {
       font-size: 18px;
       padding: 20px;
@@ -231,7 +213,13 @@
         return;
       }
 
-      container.innerHTML = products.map(item => `
+      // Сортировка по приоритету типов перед отрисовкой
+      const sorted = [...products].sort((a, b) => {
+        const getPriority = type => FILTER_CONFIG.typePriority[type] || FILTER_CONFIG.typePriority.default;
+        return getPriority(a.type) - getPriority(b.type);
+      });
+
+      container.innerHTML = sorted.map(item => `
         <div class="item">
           <img src="${item.photo || 'data:image/png;base64,...'}" alt="${item.name}">
           <h3>${item.name}</h3>
