@@ -293,6 +293,64 @@
       font-weight: 500;
     }
     
+    /* Стили для таблицы размеров */
+    .size-table-toggle {
+      color: var(--primary-color);
+      text-decoration: underline;
+      cursor: pointer;
+      display: block;
+      margin-top: 5px;
+      font-size: 12px;
+    }
+    
+    .size-chart-container {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .size-chart {
+      background: white;
+      padding: 20px;
+      border-radius: var(--radius);
+      max-width: 90%;
+      max-height: 90%;
+      overflow: auto;
+      position: relative;
+    }
+    
+    .size-chart-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      cursor: pointer;
+      font-size: 24px;
+      color: var(--dark-gray);
+    }
+    
+    .size-chart table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 15px;
+    }
+    
+    .size-chart table th, .size-chart table td {
+      border: 1px solid var(--medium-gray);
+      padding: 8px;
+      text-align: center;
+    }
+    
+    .size-chart table th {
+      background-color: var(--light-gray);
+    }
+    
     /* Стили для мобильной версии */
     @media (max-width: 768px) {
       body {
@@ -317,6 +375,10 @@
       .item {
         width: 100%;
         max-width: 300px;
+      }
+      
+      .size-chart {
+        max-width: 95%;
       }
     }
   </style>
@@ -347,6 +409,7 @@
           <option value="CM">CM</option>
         </select>
         <div class="sizes-grid" id="sizeFilters"></div>
+        <a class="size-table-toggle" onclick="toggleSizeChart()">Показать таблицу размеров</a>
       </div>
     </div>
     <div class="filter-section">
@@ -371,6 +434,26 @@
         <div class="loading-spinner"></div>
         Загружаем товары...
       </div>
+    </div>
+  </div>
+  
+  <div class="size-chart-container" id="sizeChartContainer">
+    <div class="size-chart">
+      <div class="size-chart-close" onclick="toggleSizeChart()">×</div>
+      <h3>Таблица соответствия размеров обуви</h3>
+      <p>Выберите бренд для отображения специфической таблицы размеров:</p>
+      <select id="brandSizeSelect" onchange="updateSizeChart()">
+        <option value="general">Общая таблица</option>
+        <option value="nike">Nike</option>
+        <option value="adidas">Adidas</option>
+        <option value="newbalance">New Balance</option>
+        <option value="puma">Puma</option>
+        <option value="reebok">Reebok</option>
+        <option value="asics">Asics</option>
+        <option value="converse">Converse</option>
+        <option value="vans">Vans</option>
+      </select>
+      <div id="sizeChartTable"></div>
     </div>
   </div>
 
@@ -402,287 +485,65 @@
       ]
     };
 
-    let allProducts = [];
-    let selectedBrands = [];
-    let selectedSizes = [];
-    let selectedTypes = [];
-
-    function toggleFilter(element) {
-      const content = element.nextElementSibling;
-      element.classList.toggle('collapsed');
-      content.classList.toggle('collapsed');
-    }
-
-    function updateCounter(id, count) {
-      const counter = document.getElementById(id);
-      counter.textContent = count;
-      counter.style.display = count > 0 ? 'inline-flex' : 'none';
-    }
-
-    function processImageUrl(originalUrl) {
-      if (!originalUrl) return null;
-      try {
-        const url = new URL(originalUrl);
-        if (url.hostname === '95.216.46.104') {
-          return IMAGE_PROXY + encodeURIComponent(url.href);
-        }
-        return originalUrl;
-      } catch {
-        return null;
-      }
-    }
-
-    function extractFirstPhoto(photoString) {
-      if (!photoString) return null;
-      const photos = photoString.split(';').map(url => url.trim()).filter(url => url.startsWith('http'));
-      return photos.length > 0 ? photos[0] : null;
-    }
-
-    function formatPrice(price) {
-      if (!price) return "Цена не указана";
-      const numericPrice = parseFloat(price.toString().replace(/\s/g, '').replace(',', '.'));
-      return isNaN(numericPrice) ? "Цена не указана" : `${numericPrice.toLocaleString('ru-RU')} ₴`;
-    }
-
-    function cleanSize(size) {
-      return (size || '').toString().replace(/(EU|US|UK)/g, '').trim();
-    }
-
-    function validateProduct(item) {
-      if (!item || !item.name || !item.brand) return false;
-      if (FILTER_CONFIG.excludedBrands.includes(item.brand.trim())) return false;
-      const lowerName = item.name.toLowerCase();
-      return !FILTER_CONFIG.excludedKeywords.some(keyword => lowerName.includes(keyword.toLowerCase()));
-    }
-
-    function compareSizes(a, b) {
-      // Преобразуем размеры в числа для правильной сортировки
-      const numA = parseFloat(a.replace(',', '.'));
-      const numB = parseFloat(b.replace(',', '.'));
-      
-      // Если оба значения - числа, сортируем по возрастанию
-      if (!isNaN(numA) && !isNaN(numB)) {
-        return numA - numB;
-      }
-      
-      // Если только одно значение - число
-      if (!isNaN(numA)) return -1;
-      if (!isNaN(numB)) return 1;
-      
-      // Если оба значения не числа, сортируем по алфавиту
-      return a.localeCompare(b);
-    }
-
-    function sortBrands(brands) {
-      return [...brands].sort((a, b) => {
-        const isAPopular = FILTER_CONFIG.popularBrands.some(brand => 
-          a.toLowerCase().includes(brand.toLowerCase()));
-        const isBPopular = FILTER_CONFIG.popularBrands.some(brand => 
-          b.toLowerCase().includes(brand.toLowerCase()));
-        
-        // Сначала популярные бренды
-        if (isAPopular && !isBPopular) return -1;
-        if (!isAPopular && isBPopular) return 1;
-        
-        // Для популярных брендов используем их порядок в массиве popularBrands
-        if (isAPopular && isBPopular) {
-          const aIndex = FILTER_CONFIG.popularBrands.findIndex(brand => 
-            a.toLowerCase().includes(brand.toLowerCase()));
-          const bIndex = FILTER_CONFIG.popularBrands.findIndex(brand => 
-            b.toLowerCase().includes(brand.toLowerCase()));
-          return aIndex - bIndex;
-        }
-        
-        // Для остальных брендов сортировка по алфавиту
-        return a.localeCompare(b);
-      });
-    }
-
-    async function fetchSheet(sheetId, range) {
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
-      try {
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        return data.values || [];
-      } catch (error) {
-        console.error("Ошибка при загрузке данных:", error);
-        return [];
-      }
-    }
-
-    function renderCatalog(products) {
-      const container = document.getElementById("catalog");
-      if (!products.length) {
-        container.innerHTML = `<div class="error">😐 Нет товаров по фильтрам</div>`;
-        return;
-      }
-
-      // Сортировка по приоритету типов перед отрисовкой
-      const sorted = [...products].sort((a, b) => {
-        const getPriority = type => FILTER_CONFIG.typePriority[type] || FILTER_CONFIG.typePriority.default;
-        return getPriority(a.type) - getPriority(b.type);
-      });
-
-      container.innerHTML = sorted.map(item => `
-        <div class="item">
-          <div class="item-img-container">
-            <img src="${item.photo || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='}" alt="${item.name}">
-          </div>
-          <div class="item-content">
-            <h3>${item.name}</h3>
-            <div class="item-info"><strong>Бренд:</strong> ${item.brand}</div>
-            <div class="item-info"><strong>Тип:</strong> ${item.type}</div>
-            <div class="item-info"><strong>Размеры:</strong></div>
-            <div class="sizes">${item.sizes.map(size => `<span class="size">${size}</span>`).join('')}</div>
-            <div class="price">${item.price}</div>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    function applyFilters() {
-      selectedBrands = Array.from(document.querySelectorAll('#brandFilters input:checked')).map(el => el.value);
-      selectedTypes = Array.from(document.querySelectorAll('#typeFilters input:checked')).map(el => el.value);
-      selectedSizes = Array.from(document.querySelectorAll('#sizeFilters input:checked')).map(el => el.value);
-      const query = document.getElementById('searchInput').value.toLowerCase();
-
-      updateCounter('brandCounter', selectedBrands.length);
-      updateCounter('typeCounter', selectedTypes.length);
-      updateCounter('sizeCounter', selectedSizes.length);
-
-      const filtered = allProducts.filter(item => {
-        const matchesBrand = selectedBrands.length === 0 || selectedBrands.includes(item.brand);
-        const matchesType = selectedTypes.length === 0 || selectedTypes.includes(item.type);
-        const matchesSize = selectedSizes.length === 0 || item.sizes.some(size => selectedSizes.includes(size));
-        const matchesName = item.name.toLowerCase().includes(query);
-        return matchesBrand && matchesType && matchesSize && matchesName;
-      });
-
-      renderCatalog(filtered);
-    }
-
-    function renderFilterCheckboxes(id, items, sortFunction = null) {
-      const container = document.getElementById(id);
-      const sortedItems = sortFunction ? sortFunction(items) : [...items].sort();
-      
-      if (id === 'brandFilters') {
-        container.innerHTML = sortedItems.map(item => `
-          <label class="${FILTER_CONFIG.popularBrands.some(brand => item.toLowerCase().includes(brand.toLowerCase())) ? 'popular-brand' : ''}">
-            <input type="checkbox" value="${item}">${item}
-          </label>
-        `).join('');
-      } else if (id === 'sizeFilters') {
-        container.innerHTML = sortedItems.map(item => `
-          <label>
-            <input type="checkbox" value="${item}">${item}
-          </label>
-        `).join('');
-      } else {
-        container.innerHTML = sortedItems.map(item => `
-          <label>
-            <input type="checkbox" value="${item}">${item}
-          </label>
-        `).join('');
-      }
-      
-      container.querySelectorAll('input').forEach(el => {
-        el.addEventListener('change', applyFilters);
-      });
-    }
-
-    async function loadCatalog() {
-      try {
-        const [shortData, longData] = await Promise.all([
-          fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:Z"),
-          fetchSheet(SHEET_ID_LONG, "TDSheet!A2:Z")
-        ]);
-
-        const sizeMap = {}, priceMap = {};
-        shortData.forEach(row => {
-          const article = row[0]?.trim(), size = cleanSize(row[1]), price = row[2];
-          if (article) {
-            if (!sizeMap[article]) sizeMap[article] = new Set();
-            if (size) sizeMap[article].add(size);
-            const numPrice = parseFloat((price || '').replace(/\s/g, '').replace(',', '.'));
-            if (!isNaN(numPrice)) {
-              if (!priceMap[article] || numPrice < priceMap[article]) priceMap[article] = numPrice;
-            }
-          }
-        });
-
-        const brandSet = new Set(), typeSet = new Set(), sizeSet = new Set();
-        const uniqueArticles = new Set();
-        allProducts = [];
-
-        longData.forEach(row => {
-          const article = row[0]?.trim();
-          const name = row[1]?.trim();
-          const typeRaw = row[16]?.trim();
-          const brand = row[15]?.trim();
-          const photo = processImageUrl(extractFirstPhoto(row[23]));
-          const longPrice = row[18];
-          const type = typeRaw === 'Взуття' ? 'Кросівки' : typeRaw;
-
-          if (!article || !name || typeRaw !== "Взуття") return;
-          if (uniqueArticles.has(article)) return;
-
-          const sizes = sizeMap[article] ? Array.from(sizeMap[article]).sort(compareSizes) : [];
-          const product = {
-            article, name, brand: brand || "Не указан", type,
-            photo, sizes, price: formatPrice(priceMap[article] || longPrice)
-          };
-
-          if (validateProduct(product)) {
-            allProducts.push(product);
-            uniqueArticles.add(article);
-            if (product.brand) brandSet.add(product.brand);
-            if (product.type) typeSet.add(product.type);
-            product.sizes.forEach(s => sizeSet.add(s));
-          }
-        });
-
-        renderFilterCheckboxes("brandFilters", Array.from(brandSet), sortBrands);
-        renderFilterCheckboxes("typeFilters", Array.from(typeSet).sort());
-        renderFilterCheckboxes("sizeFilters", Array.from(sizeSet).sort(compareSizes));
-
-        // Инициализация счетчиков фильтров
-        updateCounter('brandCounter', 0);
-        updateCounter('typeCounter', 0);
-        updateCounter('sizeCounter', 0);
-
-        // По умолчанию разворачиваем фильтры
-        document.querySelectorAll('.filter-title').forEach(title => {
-          if (!title.classList.contains('collapsed')) {
-            title.classList.add('collapsed');
-            title.nextElementSibling.classList.add('collapsed');
-          }
-        });
-        // Разворачиваем первый фильтр (Бренды)
-        const firstFilter = document.querySelector('.filter-title');
-        if (firstFilter) {
-          firstFilter.classList.remove('collapsed');
-          firstFilter.nextElementSibling.classList.remove('collapsed');
-        }
-
-        applyFilters();
-      } catch (error) {
-        console.error("Ошибка при загрузке каталога:", error);
-        document.getElementById("catalog").innerHTML = `
-          <div class="error">😔 Произошла ошибка при загрузке товаров. Пожалуйста, обновите страницу.</div>
-        `;
-      }
-    }
-
-    document.getElementById("searchInput").addEventListener("input", applyFilters);
-    document.getElementById("sizeStandard").addEventListener("change", function() {
-      // Здесь можно добавить логику для переключения систем размеров
-      applyFilters();
-    });
-    
-    document.addEventListener("DOMContentLoaded", loadCatalog);
-  </script>
-</body>
-</html>
+    // Таблицы соответствия размеров для разных брендов
+    const SIZE_CHARTS = {
+      general: {
+        EU: [35, 35.5, 36, 37, 37.5, 38, 38.5, 39, 40, 40.5, 41, 42, 42.5, 43, 44, 44.5, 45, 46, 47, 48, 49],
+        US: [3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 13, 14, 15],
+        UK: [3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12.5, 13.5, 14.5],
+        UA: [35, 36, 36, 37, 38, 38, 39, 39, 40, 41, 41, 42, 43, 43, 44, 45, 45, 46, 47, 48, 49],
+        CM: [22.5, 23, 23.5, 24, 24.5, 25, 25.5, 26, 26.5, 27, 27.5, 28, 28.5, 29, 29.5, 30, 30.5, 31, 32, 33, 34]
+      },
+      nike: {
+        EU: [35.5, 36, 36.5, 37.5, 38, 38.5, 39, 40, 40.5, 41, 42, 42.5, 43, 44, 44.5, 45, 45.5, 46, 47, 47.5, 48.5],
+        US: [3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 14],
+        UK: [3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13.5],
+        UA: [35.5, 36, 36.5, 37.5, 38, 38.5, 39, 40, 40.5, 41, 42, 42.5, 43, 44, 44.5, 45, 45.5, 46, 47, 47.5, 48.5],
+        CM: [22.5, 23, 23.5, 24, 24.5, 25, 25.5, 26, 26.5, 27, 27.5, 28, 28.5, 29, 29.5, 30, 30.5, 31, 31.5, 32, 33]
+      },
+      adidas: {
+        EU: [36, 36.5, 37.5, 38, 38.5, 39.5, 40, 40.5, 41.5, 42, 42.5, 43.5, 44, 44.5, 45.5, 46, 46.5, 47.5, 48, 48.5, 49.5],
+        US: [4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14],
+        UK: [3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5],
+        UA: [36, 36.5, 37.5, 38, 38.5, 39.5, 40, 40.5, 41.5, 42, 42.5, 43.5, 44, 44.5, 45.5, 46, 46.5, 47.5, 48, 48.5, 49.5],
+        CM: [22.8, 23.1, 23.8, 24.2, 24.6, 25.1, 25.5, 25.9, 26.6, 27, 27.5, 28.1, 28.5, 29, 29.6, 30, 30.5, 31.1, 31.5, 32, 32.6]
+      },
+      newbalance: {
+        EU: [35, 35.5, 36, 37, 37.5, 38, 38.5, 39, 40, 40.5, 41.5, 42, 42.5, 43, 44, 44.5, 45, 46.5, 47.5, 49.5, 50],
+        US: [4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 13, 14, 15, 15.5],
+        UK: [2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11.5, 12.5, 14, 14.5],
+        UA: [35, 35.5, 36, 37, 37.5, 38, 38.5, 39, 40, 40.5, 41.5, 42, 42.5, 43, 44, 44.5, 45, 46.5, 47.5, 49.5, 50],
+        CM: [22.5, 23, 23.5, 24, 24.5, 25, 25.5, 26, 26.5, 27, 27.5, 28, 28.5, 29, 29.5, 30, 30.5, 31.5, 32.5, 34, 34.5]
+      },
+      puma: {
+        EU: [35.5, 36, 37, 37.5, 38, 38.5, 39, 40, 40.5, 41, 42, 42.5, 43, 44, 44.5, 45, 46, 47, 48.5, 49.5, 50.5],
+        US: [3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 13, 14, 15],
+        UK: [3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 13, 14, 15],
+        UA: [35.5, 36, 37, 37.5, 38, 38.5, 39, 40, 40.5, 41, 42, 42.5, 43, 44, 44.5, 45, 46, 47, 48.5, 49.5, 50.5],
+        CM: [22.5, 23, 23.5, 24, 24.5, 25, 25.5, 26, 26.5, 27, 27.5, 28, 28.5, 29, 29.5, 30, 30.5, 31, 32, 33, 34]
+      },
+      reebok: {
+        EU: [35.5, 36, 36.5, 37, 38, 38.5, 39, 40, 40.5, 41, 42, 42.5, 43, 44, 44.5, 45, 45.5, 46, 47, 48, 49],
+        US: [4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 14, 15],
+        UK: [3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 13, 14],
+        UA: [35.5, 36, 36.5, 37, 38, 38.5, 39, 40, 40.5, 41, 42, 42.5, 43, 44, 44.5, 45, 45.5, 46, 47, 48, 49],
+        CM: [22.5, 23, 23.5, 24, 24.5, 25, 25.5, 26, 26.5, 27, 27.5, 28, 28.5, 29, 29.5, 30, 30.5, 31, 32, 33, 34]
+      },
+      asics: {
+        EU: [36, 37, 37.5, 38, 39, 39.5, 40, 40.5, 41.5, 42, 42.5, 43.5, 44, 44.5, 45, 46, 46.5, 47, 48, 49, 50],
+        US: [4, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 14, 15, 16],
+        UK: [3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 13, 14, 15],
+        UA: [36, 37, 37.5, 38, 39, 39.5, 40, 40.5, 41.5, 42, 42.5, 43.5, 44, 44.5, 45, 46, 46.5, 47, 48, 49, 50],
+        CM: [22.9, 23.5, 24, 24.5, 25, 25.5, 26, 26.5, 27, 27.5, 28, 28.5, 29, 29.5, 30, 30.5, 31, 31.5, 32.5, 33.5, 34.5]
+      },
+      converse: {
+        EU: [35.5, 36, 37, 37.5, 38, 39, 39.5, 40, 41, 41.5, 42, 42.5, 43, 44, 44.5, 45, 46, 47, 48, 49, 50],
+        US: [3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 12, 13, 14, 15],
+        UK: [3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 12, 13, 14, 15],
+        UA: [35.5, 36, 37, 37.5, 38, 39, 39.5, 40, 41, 41.5, 42, 42.5, 43, 44, 44.5, 45, 46, 47, 48, 49, 50],
+        CM: [22.5, 23, 23.5, 24, 24.5, 25, 25.5, 26, 26.5, 27, 27.5, 28, 28.5, 29, 29.5, 30, 30.5, 31.5, 32.5, 33.5, 34.5]
+      },
+      vans: {
+        EU: [34.5, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 44.5, 45, 46, 47, 48, 49, 50],
+        US: [3.5, 4, 5, 5.5, 6, 7, 7.5, 8.5, 9, 10, 10.5, 11, 11.5, 12, 13, 14, 15, 16],
+        UK: [2.5, 3, 4, 4.5, 5, 6, 6.5, 7.5, 8, 9, 9.5,
