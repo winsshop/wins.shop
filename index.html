@@ -583,36 +583,32 @@ vans: {
 
     // Загрузка данных из Google Sheets
     async function fetchProducts() {
-  try {
-    // Получаем данные из двух источников и объединяем
-    const productsShort = await fetchSheetData(SHEET_ID_SHORT);
-    const productsLong = await fetchSheetData(SHEET_ID_LONG);
-    
-    // Объединяем и обрабатываем данные
-    let allProducts = [...productsShort, ...productsLong];
-    
-    // Обработка данных
-    allProducts = allProducts.filter(product => {
-      // Проверяем наличие бренда перед использованием includes
-      if (product.brand && FILTER_CONFIG.excludedBrands.includes(product.brand)) return false;
-      
-      // Проверяем наличие имени перед проверкой ключевых слов
-      if (product.name) {
-        for (const keyword of FILTER_CONFIG.excludedKeywords) {
-          if (product.name.includes(keyword)) return false;
-        }
-      } else {
-        return false; // Пропускаем товары без названия
+      try {
+        // Получаем данные из двух источников и объединяем
+        const productsShort = await fetchSheetData(SHEET_ID_SHORT);
+        const productsLong = await fetchSheetData(SHEET_ID_LONG);
+        
+        // Объединяем и обрабатываем данные
+        let allProducts = [...productsShort, ...productsLong];
+        
+        // Обработка данных
+        allProducts = allProducts.filter(product => {
+          // Фильтруем по брендам и ключевым словам
+          if (FILTER_CONFIG.excludedBrands.includes(product.brand)) return false;
+          
+          // Проверяем исключаемые ключевые слова в названии
+          for (const keyword of FILTER_CONFIG.excludedKeywords) {
+            if (product.name.includes(keyword)) return false;
+          }
+          
+          return true;
+        });
+        
+        return allProducts;
+      } catch (error) {
+        throw new Error(`Ошибка загрузки данных: ${error.message}`);
       }
-      
-      return true;
-    });
-    
-    return allProducts;
-  } catch (error) {
-    throw new Error(`Ошибка загрузки данных: ${error.message}`);
-  }
-}
+    }
 
     // Загрузка данных из конкретного источника
     async function fetchSheetData(sheetId) {
