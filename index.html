@@ -594,11 +594,11 @@ vans: {
         // Обработка данных
         allProducts = allProducts.filter(product => {
           // Фильтруем по брендам и ключевым словам
-          if (FILTER_CONFIG.(typeof excludedBrands === "string" && excludedBrands.includes(product.brand)) return false;
+          if (FILTER_CONFIG.excludedBrands.includes(product.brand)) return false;
           
           // Проверяем исключаемые ключевые слова в названии
           for (const keyword of FILTER_CONFIG.excludedKeywords) {
-            if (product.(typeof name === "string" && name.includes(keyword)) return false;
+            if (product.name.includes(keyword)) return false;
           }
           
           return true;
@@ -693,8 +693,8 @@ vans: {
       
       // Сортируем бренды по приоритету (популярные сначала, затем алфавитный порядок)
       const sortedBrands = Array.from(availableBrands).sort((a, b) => {
-        const aIsPopular = FILTER_CONFIG.(typeof popularBrands === "string" && popularBrands.includes(a);
-        const bIsPopular = FILTER_CONFIG.(typeof popularBrands === "string" && popularBrands.includes(b);
+        const aIsPopular = FILTER_CONFIG.popularBrands.includes(a);
+        const bIsPopular = FILTER_CONFIG.popularBrands.includes(b);
         
         if (aIsPopular && !bIsPopular) return -1;
         if (!aIsPopular && bIsPopular) return 1;
@@ -704,7 +704,7 @@ vans: {
       sortedBrands.forEach(brand => {
         const count = products.filter(p => p.brand === brand).length;
         const label = document.createElement('label');
-        const isPopular = FILTER_CONFIG.(typeof popularBrands === "string" && popularBrands.includes(brand);
+        const isPopular = FILTER_CONFIG.popularBrands.includes(brand);
         
         label.innerHTML = `
           <input type="checkbox" data-brand="${brand}" 
