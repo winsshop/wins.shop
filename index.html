@@ -293,6 +293,26 @@
       font-weight: 500;
     }
     
+    /* Новые стили */
+    .size-type-info {
+      font-size: 13px;
+      color: var(--dark-gray);
+      margin-top: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    
+    .size-badge {
+      display: inline-block;
+      background: var(--primary-color);
+      color: white;
+      font-size: 11px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-left: 5px;
+    }
+    
     /* Стили для мобильной версии */
     @media (max-width: 768px) {
       body {
@@ -340,11 +360,11 @@
       </div>
       <div class="filter-content" id="sizeContainer">
         <select id="sizeStandard" class="size-standard-select">
-          <option value="EU" selected>EU</option>
-          <option value="US">US</option>
-          <option value="UK">UK</option>
-          <option value="UA">UA</option>
-          <option value="CM">CM</option>
+          <option value="EU" selected>EU (Европейский)</option>
+          <option value="US">US (Американский) - М</option>
+          <option value="UK">UK (Британский)</option>
+          <option value="UA">UA (Украинский)</option>
+          <option value="CM">CM (Сантиметры)</option>
         </select>
         <div class="sizes-grid" id="sizeFilters"></div>
       </div>
@@ -402,10 +422,74 @@
       ]
     };
 
+    // Таблица конвертации размеров
+    // EU - базовая система размеров, от которой конвертируем в другие системы
+    // [UK, US_M, US_W, UA, CM]
+    const SIZE_CONVERSION = {
+      '35': ['2.5', '3.5', '5', '35', '22'],
+      '35.5': ['3', '4', '5.5', '35.5', '22.5'],
+      '36': ['3.5', '4.5', '6', '36', '23'],
+      '36.5': ['4', '5', '6.5', '36.5', '23.5'],
+      '37': ['4.5', '5.5', '7', '37', '24'],
+      '37.5': ['5', '6', '7.5', '37.5', '24.5'],
+      '38': ['5.5', '6.5', '8', '38', '25'],
+      '38.5': ['6', '7', '8.5', '38.5', '25.5'],
+      '39': ['6.5', '7.5', '9', '39', '26'],
+      '39.5': ['7', '8', '9.5', '39.5', '26.5'],
+      '40': ['7.5', '8.5', '10', '40', '27'],
+      '40.5': ['8', '9', '10.5', '40.5', '27.5'],
+      '41': ['8.5', '9.5', '11', '41', '28'],
+      '41.5': ['9', '10', '11.5', '41.5', '28.5'],
+      '42': ['9.5', '10.5', '12', '42', '29'],
+      '42.5': ['10', '11', '12.5', '42.5', '29.5'],
+      '43': ['10.5', '11.5', '13', '43', '30'],
+      '43.5': ['11', '12', '13.5', '43.5', '30.5'],
+      '44': ['11.5', '12.5', '14', '44', '31'],
+      '44.5': ['12', '13', '14.5', '44.5', '31.5'],
+      '45': ['12.5', '13.5', '15', '45', '32'],
+      '45.5': ['13', '14', '15.5', '45.5', '32.5'],
+      '46': ['13.5', '14.5', '16', '46', '33'],
+      '46.5': ['14', '15', '16.5', '46.5', '33.5'],
+      '47': ['14.5', '15.5', '17', '47', '34'],
+      '47.5': ['15', '16', '17.5', '47.5', '34.5'],
+      '48': ['15.5', '16.5', '18', '48', '35'],
+      '48.5': ['16', '17', '18.5', '48.5', '35.5'],
+      '49': ['16.5', '17.5', '19', '49', '36'],
+    };
+
+    // Обратная таблица конвертации (для поиска EU размера по другому стандарту)
+    const REVERSE_SIZE_CONVERSION = {
+      'UK': {},
+      'US': {},
+      'UA': {},
+      'CM': {}
+    };
+
+    // Заполняем обратную таблицу конвертации
+    function initializeReverseConversion() {
+      Object.entries(SIZE_CONVERSION).forEach(([eu, values]) => {
+        const [uk, us, /* us_w */, ua, cm] = values;
+        
+        if (uk) REVERSE_SIZE_CONVERSION['UK'][uk] = eu;
+        if (us) REVERSE_SIZE_CONVERSION['US'][us] = eu;
+        if (ua) REVERSE_SIZE_CONVERSION['UA'][ua] = eu;
+        if (cm) REVERSE_SIZE_CONVERSION['CM'][cm] = eu;
+      });
+    }
+
+    // Индекс системы размеров в массиве конвертации
+    const SIZE_SYSTEM_INDEX = {
+      'UK': 0,
+      'US': 1,
+      'UA': 3,
+      'CM': 4
+    };
+
     let allProducts = [];
     let selectedBrands = [];
     let selectedSizes = [];
     let selectedTypes = [];
+    let currentSizeStandard = 'EU'; // По умолчанию используем EU
 
     function toggleFilter(element) {
       const content = element.nextElementSibling;
@@ -445,7 +529,7 @@
     }
 
     function cleanSize(size) {
-      return (size || '').toString().replace(/(EU|US|UK)/g, '').trim();
+      return (size || '').toString().replace(/(EU|US|UK|UA|CM)/g, '').trim();
     }
 
     function validateProduct(item) {
@@ -453,6 +537,53 @@
       if (FILTER_CONFIG.excludedBrands.includes(item.brand.trim())) return false;
       const lowerName = item.name.toLowerCase();
       return !FILTER_CONFIG.excludedKeywords.some(keyword => lowerName.includes(keyword.toLowerCase()));
+    }
+
+    // Конвертация размера из одной системы в другую
+    function convertSize(size, fromSystem, toSystem) {
+      // Если системы одинаковые, просто возвращаем размер
+      if (fromSystem === toSystem) return size;
+      
+      // Чистим размер от буквенных обозначений
+      const cleanedSize = cleanSize(size);
+      
+      // Всегда конвертируем через EU, если нужно
+      let euSize;
+      
+      if (fromSystem === 'EU') {
+        euSize = cleanedSize;
+      } else {
+        // Ищем EU размер через обратную таблицу
+        euSize = REVERSE_SIZE_CONVERSION[fromSystem][cleanedSize];
+        if (!euSize) return null; // Если не нашли соответствие
+      }
+      
+      // Теперь конвертируем из EU в целевую систему
+      if (toSystem === 'EU') {
+        return euSize;
+      }
+      
+      const conversionData = SIZE_CONVERSION[euSize];
+      if (!conversionData) return null;
+      
+      const targetIndex = SIZE_SYSTEM_INDEX[toSystem];
+      return conversionData[targetIndex] || null;
+    }
+
+    // Функция для конвертации всех размеров продукта
+    function convertProductSizes(product, toSystem) {
+      // Создаем копию оригинальных размеров, чтобы не изменять исходные данные
+      const originalSizes = [...product.originalSizes];
+      const convertedSizes = [];
+      
+      originalSizes.forEach(size => {
+        const converted = convertSize(size, 'EU', toSystem);
+        if (converted) {
+          convertedSizes.push(converted);
+        }
+      });
+      
+      return convertedSizes;
     }
 
     function compareSizes(a, b) {
@@ -526,27 +657,61 @@
         return getPriority(a.type) - getPriority(b.type);
       });
 
-      container.innerHTML = sorted.map(item => `
-        <div class="item">
-          <div class="item-img-container">
-            <img src="${item.photo || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='}" alt="${item.name}">
+      container.innerHTML = sorted.map(item => {
+        // Конвертируем размеры для отображения в текущем стандарте
+        const displaySizes = currentSizeStandard === 'EU' 
+          ? item.sizes 
+          : convertProductSizes(item, currentSizeStandard);
+        
+        return `
+          <div class="item">
+            <div class="item-img-container">
+              <img src="${item.photo || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='}" alt="${item.name}">
+            </div>
+            <div class="item-content">
+              <h3>${item.name}</h3>
+              <div class="item-info"><strong>Бренд:</strong> ${item.brand}</div>
+              <div class="item-info"><strong>Тип:</strong> ${item.type}</div>
+              <div class="item-info">
+                <strong>Размеры:</strong>
+                <div class="size-type-info">
+                  <span class="size-badge">${currentSizeStandard}</span>
+                </div>
+              </div>
+              <div class="sizes">${displaySizes.map(size => `<span class="size">${size}</span>`).join('')}</div>
+              <div class="price">${item.price}</div>
+            </div>
           </div>
-          <div class="item-content">
-            <h3>${item.name}</h3>
-            <div class="item-info"><strong>Бренд:</strong> ${item.brand}</div>
-            <div class="item-info"><strong>Тип:</strong> ${item.type}</div>
-            <div class="item-info"><strong>Размеры:</strong></div>
-            <div class="sizes">${item.sizes.map(size => `<span class="size">${size}</span>`).join('')}</div>
-            <div class="price">${item.price}</div>
+return `
+          <div class="item">
+            <div class="item-img-container">
+              <img src="${item.photo || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='}" alt="${item.name}">
+            </div>
+            <div class="item-content">
+              <h3>${item.name}</h3>
+              <div class="item-info"><strong>Бренд:</strong> ${item.brand}</div>
+              <div class="item-info"><strong>Тип:</strong> ${item.type}</div>
+              <div class="item-info">
+                <strong>Размеры:</strong>
+                <div class="size-type-info">
+                  <span class="size-badge">${currentSizeStandard}</span>
+                </div>
+              </div>
+              <div class="sizes">${displaySizes.map(size => `<span class="size">${size}</span>`).join('')}</div>
+              <div class="price">${item.price}</div>
+            </div>
           </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
     function applyFilters() {
       selectedBrands = Array.from(document.querySelectorAll('#brandFilters input:checked')).map(el => el.value);
       selectedTypes = Array.from(document.querySelectorAll('#typeFilters input:checked')).map(el => el.value);
+      
+      // Получаем выбранные размеры в текущем стандарте
       selectedSizes = Array.from(document.querySelectorAll('#sizeFilters input:checked')).map(el => el.value);
+      
       const query = document.getElementById('searchInput').value.toLowerCase();
 
       updateCounter('brandCounter', selectedBrands.length);
@@ -556,7 +721,19 @@
       const filtered = allProducts.filter(item => {
         const matchesBrand = selectedBrands.length === 0 || selectedBrands.includes(item.brand);
         const matchesType = selectedTypes.length === 0 || selectedTypes.includes(item.type);
-        const matchesSize = selectedSizes.length === 0 || item.sizes.some(size => selectedSizes.includes(size));
+        
+        // Проверка соответствия размеров с учетом текущего стандарта
+        const matchesSize = selectedSizes.length === 0 || 
+          selectedSizes.some(selectedSize => {
+            if (currentSizeStandard === 'EU') {
+              return item.sizes.includes(selectedSize);
+            } else {
+              // Конвертируем размер из текущего стандарта в EU для сравнения
+              const euSize = convertSize(selectedSize, currentSizeStandard, 'EU');
+              return euSize && item.sizes.includes(euSize);
+            }
+          });
+        
         const matchesName = item.name.toLowerCase().includes(query);
         return matchesBrand && matchesType && matchesSize && matchesName;
       });
@@ -593,8 +770,46 @@
       });
     }
 
+    // Функция для обновления фильтров размеров при изменении стандарта
+    function updateSizeFilters(sizeStandard) {
+      const euSizes = Array.from(new Set(allProducts.flatMap(p => p.sizes)));
+      const convertedSizes = [];
+      
+      euSizes.forEach(euSize => {
+        if (sizeStandard === 'EU') {
+          convertedSizes.push(euSize);
+        } else {
+          const convertedSize = convertSize(euSize, 'EU', sizeStandard);
+          if (convertedSize) {
+            convertedSizes.push(convertedSize);
+          }
+        }
+      });
+      
+      // Отсортируем и уберем дубликаты
+      const uniqueConvertedSizes = Array.from(new Set(convertedSizes)).sort(compareSizes);
+      
+      // Сохраняем отмеченные значения перед обновлением
+      const checkedValues = Array.from(document.querySelectorAll('#sizeFilters input:checked')).map(el => el.value);
+      
+      // Рендерим новые фильтры
+      renderFilterCheckboxes("sizeFilters", uniqueConvertedSizes, compareSizes);
+      
+      // Восстанавливаем отмеченные значения, если они все еще существуют в новом стандарте
+      if (checkedValues.length) {
+        document.querySelectorAll('#sizeFilters input').forEach(input => {
+          if (checkedValues.includes(input.value)) {
+            input.checked = true;
+          }
+        });
+      }
+    }
+
     async function loadCatalog() {
       try {
+        // Инициализируем обратную таблицу конвертации
+        initializeReverseConversion();
+        
         const [shortData, longData] = await Promise.all([
           fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:Z"),
           fetchSheet(SHEET_ID_LONG, "TDSheet!A2:Z")
@@ -632,7 +847,9 @@
           const sizes = sizeMap[article] ? Array.from(sizeMap[article]).sort(compareSizes) : [];
           const product = {
             article, name, brand: brand || "Не указан", type,
-            photo, sizes, price: formatPrice(priceMap[article] || longPrice)
+            photo, price: formatPrice(priceMap[article] || longPrice),
+            sizes, // EU размеры для хранения
+            originalSizes: sizes, // Сохраняем оригинальные размеры для конвертации
           };
 
           if (validateProduct(product)) {
@@ -677,8 +894,15 @@
     }
 
     document.getElementById("searchInput").addEventListener("input", applyFilters);
+    
+    // Обработчик изменения стандарта размеров
     document.getElementById("sizeStandard").addEventListener("change", function() {
-      // Здесь можно добавить логику для переключения систем размеров
+      currentSizeStandard = this.value;
+      
+      // Обновляем фильтры размеров в соответствии с выбранным стандартом
+      updateSizeFilters(currentSizeStandard);
+      
+      // Применяем фильтры для обновления списка товаров
       applyFilters();
     });
     
