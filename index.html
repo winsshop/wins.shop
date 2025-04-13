@@ -365,6 +365,8 @@
     const SHEET_ID_LONG = "1ZUdfEr8ztkJnUWpj7j0H8MvrMRLVt0Fo2NI71KvCmgs";
     const IMAGE_PROXY = "https://images.weserv.nl/?url=";
 
+    const MIN_SIZE = 35.5; // Минимальный размер для отображения
+
     const FILTER_CONFIG = {
       excludedBrands: ["Joma"],
       excludedKeywords: [
@@ -431,6 +433,12 @@
 
     function cleanSize(size) {
       return (size || '').toString().replace(/EU/g, '').trim();
+    }
+
+    function isValidSize(size) {
+      // Проверяем, что размер - число и не меньше минимального
+      const numSize = parseFloat(size.replace(',', '.'));
+      return !isNaN(numSize) && numSize >= MIN_SIZE;
     }
 
     function validateProduct(item) {
@@ -587,10 +595,14 @@
 
         const sizeMap = {}, priceMap = {};
         shortData.forEach(row => {
-          const article = row[0]?.trim(), size = cleanSize(row[1]), price = row[2];
-          if (article) {
+          const article = row[0]?.trim();
+          const rawSize = cleanSize(row[1]);
+          const price = row[2];
+          
+          if (article && rawSize && isValidSize(rawSize)) {
             if (!sizeMap[article]) sizeMap[article] = new Set();
-            if (size) sizeMap[article].add(size);
+            sizeMap[article].add(rawSize);
+            
             const numPrice = parseFloat((price || '').replace(/\s/g, '').replace(',', '.'));
             if (!isNaN(numPrice)) {
               if (!priceMap[article] || numPrice < priceMap[article]) priceMap[article] = numPrice;
@@ -613,6 +625,9 @@
 
           if (!article || !name || typeRaw !== "Взуття") return;
           if (uniqueArticles.has(article)) return;
+          
+          // Проверяем, есть ли для товара размеры >= MIN_SIZE
+          if (!sizeMap[article] || sizeMap[article].size === 0) return;
 
           const sizes = sizeMap[article] ? Array.from(sizeMap[article]).sort(compareSizes) : [];
           const product = {
