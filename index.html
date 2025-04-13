@@ -107,14 +107,6 @@
       height: 16px;
     }
     
-    .size-standard-select {
-      margin: 0 0 15px;
-      width: 100%;
-      padding: 8px;
-      border-radius: 4px;
-      border: 1px solid var(--medium-gray);
-    }
-    
     .main-content {
       flex-grow: 1;
       padding: 30px;
@@ -293,24 +285,62 @@
       font-weight: 500;
     }
     
-    /* Новые стили */
-    .size-type-info {
-      font-size: 13px;
-      color: var(--dark-gray);
+    /* Стили для таблицы размеров */
+    .size-table-toggle {
+      color: var(--primary-color);
+      text-decoration: underline;
+      cursor: pointer;
+      display: block;
       margin-top: 5px;
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
+      font-size: 12px;
     }
     
-    .size-badge {
-      display: inline-block;
-      background: var(--primary-color);
-      color: white;
-      font-size: 11px;
-      padding: 1px 5px;
-      border-radius: 3px;
-      margin-left: 5px;
+    .size-chart-container {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .size-chart {
+      background: white;
+      padding: 20px;
+      border-radius: var(--radius);
+      max-width: 90%;
+      max-height: 90%;
+      overflow: auto;
+      position: relative;
+    }
+    
+    .size-chart-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      cursor: pointer;
+      font-size: 24px;
+      color: var(--dark-gray);
+    }
+    
+    .size-chart table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 15px;
+    }
+    
+    .size-chart table th, .size-chart table td {
+      border: 1px solid var(--medium-gray);
+      padding: 8px;
+      text-align: center;
+    }
+    
+    .size-chart table th {
+      background-color: var(--light-gray);
     }
     
     /* Стили для мобильной версии */
@@ -338,6 +368,10 @@
         width: 100%;
         max-width: 300px;
       }
+      
+      .size-chart {
+        max-width: 95%;
+      }
     }
   </style>
 </head>
@@ -356,16 +390,9 @@
     </div>
     <div class="filter-section">
       <div class="filter-title" onclick="toggleFilter(this)">
-        Размеры <span id="sizeCounter" class="counter">0</span>
+        Размеры EU <span id="sizeCounter" class="counter">0</span>
       </div>
       <div class="filter-content" id="sizeContainer">
-        <select id="sizeStandard" class="size-standard-select">
-          <option value="EU" selected>EU (Европейский)</option>
-          <option value="US">US (Американский) - М</option>
-          <option value="UK">UK (Британский)</option>
-          <option value="UA">UA (Украинский)</option>
-          <option value="CM">CM (Сантиметры)</option>
-        </select>
         <div class="sizes-grid" id="sizeFilters"></div>
       </div>
     </div>
@@ -393,7 +420,7 @@
       </div>
     </div>
   </div>
-
+  
   <script>
     const API_KEY = "AIzaSyCLIf11ZJ-MOQvV8XUjzUYbXNXXlgMn8XQ";
     const SHEET_ID_SHORT = "1cO0HPxLVgYbc0TayeF6dJf0Z1G8aRqwuK56mXMnKk5U";
@@ -421,492 +448,415 @@
         "Asics", "Under Armour", "Converse", "Vans", "Jordan"
       ]
     };
+    
+    // Глобальные переменные
+    let products = [];
+    let filteredProducts = [];
+    let availableSizes = new Set();
+    let selectedSizes = new Set();
+    let availableBrands = new Set();
+    let selectedBrands = new Set();
+    let availableTypes = new Set();
+    let selectedTypes = new Set();
 
-    // Таблица конвертации размеров
-    // EU - базовая система размеров, от которой конвертируем в другие системы
-    // [UK, US_M, US_W, UA, CM]
-    const SIZE_CONVERSION = {
-      '35': ['2.5', '3.5', '5', '35', '22'],
-      '35.5': ['3', '4', '5.5', '35.5', '22.5'],
-      '36': ['3.5', '4.5', '6', '36', '23'],
-      '36.5': ['4', '5', '6.5', '36.5', '23.5'],
-      '37': ['4.5', '5.5', '7', '37', '24'],
-      '37.5': ['5', '6', '7.5', '37.5', '24.5'],
-      '38': ['5.5', '6.5', '8', '38', '25'],
-      '38.5': ['6', '7', '8.5', '38.5', '25.5'],
-      '39': ['6.5', '7.5', '9', '39', '26'],
-      '39.5': ['7', '8', '9.5', '39.5', '26.5'],
-      '40': ['7.5', '8.5', '10', '40', '27'],
-      '40.5': ['8', '9', '10.5', '40.5', '27.5'],
-      '41': ['8.5', '9.5', '11', '41', '28'],
-      '41.5': ['9', '10', '11.5', '41.5', '28.5'],
-      '42': ['9.5', '10.5', '12', '42', '29'],
-      '42.5': ['10', '11', '12.5', '42.5', '29.5'],
-      '43': ['10.5', '11.5', '13', '43', '30'],
-      '43.5': ['11', '12', '13.5', '43.5', '30.5'],
-      '44': ['11.5', '12.5', '14', '44', '31'],
-      '44.5': ['12', '13', '14.5', '44.5', '31.5'],
-      '45': ['12.5', '13.5', '15', '45', '32'],
-      '45.5': ['13', '14', '15.5', '45.5', '32.5'],
-      '46': ['13.5', '14.5', '16', '46', '33'],
-      '46.5': ['14', '15', '16.5', '46.5', '33.5'],
-      '47': ['14.5', '15.5', '17', '47', '34'],
-      '47.5': ['15', '16', '17.5', '47.5', '34.5'],
-      '48': ['15.5', '16.5', '18', '48', '35'],
-      '48.5': ['16', '17', '18.5', '48.5', '35.5'],
-      '49': ['16.5', '17.5', '19', '49', '36'],
-    };
+    // Инициализация страницы
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeApp();
+    });
 
-    // Обратная таблица конвертации (для поиска EU размера по другому стандарту)
-    const REVERSE_SIZE_CONVERSION = {
-      'UK': {},
-      'US': {},
-      'UA': {},
-      'CM': {}
-    };
-
-    // Заполняем обратную таблицу конвертации
-    function initializeReverseConversion() {
-      Object.entries(SIZE_CONVERSION).forEach(([eu, values]) => {
-        const [uk, us, /* us_w */, ua, cm] = values;
+    // Инициализация приложения
+    async function initializeApp() {
+      try {
+        products = await fetchProducts();
+        initializeFilters();
+        updateProductList();
         
-        if (uk) REVERSE_SIZE_CONVERSION['UK'][uk] = eu;
-        if (us) REVERSE_SIZE_CONVERSION['US'][us] = eu;
-        if (ua) REVERSE_SIZE_CONVERSION['UA'][ua] = eu;
-        if (cm) REVERSE_SIZE_CONVERSION['CM'][cm] = eu;
-      });
+        // Добавление обработчиков событий
+        document.getElementById('searchInput').addEventListener('input', updateProductList);
+      } catch (error) {
+        showError(error.message);
+      }
     }
 
-    // Индекс системы размеров в массиве конвертации
-    const SIZE_SYSTEM_INDEX = {
-      'UK': 0,
-      'US': 1,
-      'UA': 3,
-      'CM': 4
-    };
+    // Загрузка данных из Google Sheets
+    async function fetchProducts() {
+      try {
+        // Получаем данные из двух источников и объединяем
+        const productsShort = await fetchSheetData(SHEET_ID_SHORT);
+        const productsLong = await fetchSheetData(SHEET_ID_LONG);
+        
+        // Объединяем и обрабатываем данные
+        let allProducts = [...productsShort, ...productsLong];
+        
+        // Обработка данных
+        allProducts = allProducts.filter(product => {
+          // Фильтруем по брендам и ключевым словам
+          if (!product.brand || FILTER_CONFIG.excludedBrands.includes(product.brand)) return false;
+          
+          // Проверяем что название существует
+          if (!product.name) return false;
+          
+          // Проверяем исключаемые ключевые слова в названии
+          for (const keyword of FILTER_CONFIG.excludedKeywords) {
+            if (product.name.includes(keyword)) return false;
+          }
+          
+          return true;
+        });
+        
+        return allProducts;
+      } catch (error) {
+        throw new Error(`Ошибка загрузки данных: ${error.message}`);
+      }
+    }
 
-    let allProducts = [];
-    let selectedBrands = [];
-    let selectedSizes = [];
-    let selectedTypes = [];
-    let currentSizeStandard = 'EU'; // По умолчанию используем EU
+    // Загрузка данных из конкретного источника
+    async function fetchSheetData(sheetId) {
+      try {
+        const response = await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/TDSheet?key=${API_KEY}`
+        );
+        
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Проверяем, что данные получены
+        if (!data || !data.values || !data.values.length) {
+          throw new Error('Нет данных в таблице');
+        }
+        
+        const rows = data.values;
+        
+        // Проверяем, что есть хотя бы заголовок
+        if (rows.length < 1) {
+          throw new Error('Таблица не содержит данных');
+        }
+        
+        // Предполагаем, что первая строка содержит заголовки
+        const headers = rows[0];
+        return rows.slice(1).map(row => {
+          const product = {};
+          headers.forEach((header, index) => {
+            if (header) { // Проверяем, что заголовок существует
+              product[header.toLowerCase()] = row[index] || '';
+            }
+          });
+          
+          // Устанавливаем значения по умолчанию для важных полей
+          product.brand = product.brand || '';
+          product.name = product.name || '';
+          product.type = product.type || '';
+          
+          // Обработка размеров
+          if (product.sizes) {
+            product.sizeArray = product.sizes.split(',')
+              .map(size => parseFloat(size.trim()))
+              .filter(size => !isNaN(size));
+          } else {
+            product.sizeArray = [];
+          }
+          
+          return product;
+        });
+      } catch (error) {
+        console.error('Ошибка при загрузке данных:', error);
+        throw new Error(`Ошибка загрузки данных из таблицы: ${error.message}`);
+      }
+    }
 
+    // Инициализация фильтров
+    function initializeFilters() {
+      // Собираем все доступные данные для фильтров
+      products.forEach(product => {
+        // Добавляем бренд
+        if (product.brand && product.brand.trim()) {
+          availableBrands.add(product.brand.trim());
+        }
+        
+        // Добавляем тип
+        if (product.type && product.type.trim()) {
+          availableTypes.add(product.type.trim());
+        }
+        
+        // Добавляем размеры
+        if (Array.isArray(product.sizeArray)) {
+          product.sizeArray.forEach(size => {
+            if (!isNaN(size) && size > 0) {
+              availableSizes.add(size);
+            }
+          });
+        }
+      });
+      
+      // Инициализируем фильтры
+      renderBrandFilters();
+      renderTypeFilters();
+      renderSizeFilters();
+      
+      // Добавляем обработчики событий для открытия/закрытия фильтров
+      const filterTitles = document.querySelectorAll('.filter-title');
+      filterTitles.forEach(title => {
+        title.addEventListener('click', () => toggleFilter(title));
+      });
+    }
+    
+    // Переключение видимости фильтра
     function toggleFilter(element) {
       const content = element.nextElementSibling;
       element.classList.toggle('collapsed');
       content.classList.toggle('collapsed');
     }
-
-    function updateCounter(id, count) {
-      const counter = document.getElementById(id);
-      counter.textContent = count;
-      counter.style.display = count > 0 ? 'inline-flex' : 'none';
-    }
-
-    function processImageUrl(originalUrl) {
-      if (!originalUrl) return null;
-      try {
-        const url = new URL(originalUrl);
-        if (url.hostname === '95.216.46.104') {
-          return IMAGE_PROXY + encodeURIComponent(url.href);
-        }
-        return originalUrl;
-      } catch {
-        return null;
-      }
-    }
-
-    function extractFirstPhoto(photoString) {
-      if (!photoString) return null;
-      const photos = photoString.split(';').map(url => url.trim()).filter(url => url.startsWith('http'));
-      return photos.length > 0 ? photos[0] : null;
-    }
-
-    function formatPrice(price) {
-      if (!price) return "Цена не указана";
-      const numericPrice = parseFloat(price.toString().replace(/\s/g, '').replace(',', '.'));
-      return isNaN(numericPrice) ? "Цена не указана" : `${numericPrice.toLocaleString('ru-RU')} ₴`;
-    }
-
-    function cleanSize(size) {
-      return (size || '').toString().replace(/(EU|US|UK|UA|CM)/g, '').trim();
-    }
-
-    function validateProduct(item) {
-      if (!item || !item.name || !item.brand) return false;
-      if (FILTER_CONFIG.excludedBrands.includes(item.brand.trim())) return false;
-      const lowerName = item.name.toLowerCase();
-      return !FILTER_CONFIG.excludedKeywords.some(keyword => lowerName.includes(keyword.toLowerCase()));
-    }
-
-    // Конвертация размера из одной системы в другую
-    function convertSize(size, fromSystem, toSystem) {
-      // Если системы одинаковые, просто возвращаем размер
-      if (fromSystem === toSystem) return size;
+    
+    // Отображение фильтров брендов
+    function renderBrandFilters() {
+      const container = document.getElementById('brandFilters');
+      container.innerHTML = '';
       
-      // Чистим размер от буквенных обозначений
-      const cleanedSize = cleanSize(size);
-      
-      // Всегда конвертируем через EU, если нужно
-      let euSize;
-      
-      if (fromSystem === 'EU') {
-        euSize = cleanedSize;
-      } else {
-        // Ищем EU размер через обратную таблицу
-        euSize = REVERSE_SIZE_CONVERSION[fromSystem][cleanedSize];
-        if (!euSize) return null; // Если не нашли соответствие
-      }
-      
-      // Теперь конвертируем из EU в целевую систему
-      if (toSystem === 'EU') {
-        return euSize;
-      }
-      
-      const conversionData = SIZE_CONVERSION[euSize];
-      if (!conversionData) return null;
-      
-      const targetIndex = SIZE_SYSTEM_INDEX[toSystem];
-      return conversionData[targetIndex] || null;
-    }
-
-    // Функция для конвертации всех размеров продукта
-    function convertProductSizes(product, toSystem) {
-      // Создаем копию оригинальных размеров, чтобы не изменять исходные данные
-      const originalSizes = [...product.originalSizes];
-      const convertedSizes = [];
-      
-      originalSizes.forEach(size => {
-        const converted = convertSize(size, 'EU', toSystem);
-        if (converted) {
-          convertedSizes.push(converted);
-        }
-      });
-      
-      return convertedSizes;
-    }
-
-    function compareSizes(a, b) {
-      // Преобразуем размеры в числа для правильной сортировки
-      const numA = parseFloat(a.replace(',', '.'));
-      const numB = parseFloat(b.replace(',', '.'));
-      
-      // Если оба значения - числа, сортируем по возрастанию
-      if (!isNaN(numA) && !isNaN(numB)) {
-        return numA - numB;
-      }
-      
-      // Если только одно значение - число
-      if (!isNaN(numA)) return -1;
-      if (!isNaN(numB)) return 1;
-      
-      // Если оба значения не числа, сортируем по алфавиту
-      return a.localeCompare(b);
-    }
-
-    function sortBrands(brands) {
-      return [...brands].sort((a, b) => {
-        const isAPopular = FILTER_CONFIG.popularBrands.some(brand => 
-          a.toLowerCase().includes(brand.toLowerCase()));
-        const isBPopular = FILTER_CONFIG.popularBrands.some(brand => 
-          b.toLowerCase().includes(brand.toLowerCase()));
+      // Сортируем бренды по приоритету (популярные сначала, затем алфавитный порядок)
+      const sortedBrands = Array.from(availableBrands).sort((a, b) => {
+        const aIsPopular = FILTER_CONFIG.popularBrands.includes(a);
+        const bIsPopular = FILTER_CONFIG.popularBrands.includes(b);
         
-        // Сначала популярные бренды
-        if (isAPopular && !isBPopular) return -1;
-        if (!isAPopular && isBPopular) return 1;
-        
-        // Для популярных брендов используем их порядок в массиве popularBrands
-        if (isAPopular && isBPopular) {
-          const aIndex = FILTER_CONFIG.popularBrands.findIndex(brand => 
-            a.toLowerCase().includes(brand.toLowerCase()));
-          const bIndex = FILTER_CONFIG.popularBrands.findIndex(brand => 
-            b.toLowerCase().includes(brand.toLowerCase()));
-          return aIndex - bIndex;
-        }
-        
-        // Для остальных брендов сортировка по алфавиту
+        if (aIsPopular && !bIsPopular) return -1;
+        if (!aIsPopular && bIsPopular) return 1;
         return a.localeCompare(b);
       });
+      
+      sortedBrands.forEach(brand => {
+        const count = products.filter(p => p.brand === brand).length;
+        const label = document.createElement('label');
+        const isPopular = FILTER_CONFIG.popularBrands.includes(brand);
+        
+        label.innerHTML = `
+          <input type="checkbox" data-brand="${brand}" 
+            ${selectedBrands.has(brand) ? 'checked' : ''} 
+            onchange="toggleBrandFilter(this)">
+          <span ${isPopular ? 'class="popular-brand"' : ''}>${brand}</span> (${count})
+        `;
+        
+        container.appendChild(label);
+      });
+      
+      updateBrandCounter();
     }
-
-    async function fetchSheet(sheetId, range) {
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
-      try {
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+    
+    // Отображение фильтров типов товаров
+    function renderTypeFilters() {
+      const container = document.getElementById('typeFilters');
+      container.innerHTML = '';
+      
+      // Сортируем типы по приоритету
+      const sortedTypes = Array.from(availableTypes).sort((a, b) => {
+        const aPriority = FILTER_CONFIG.typePriority[a] || FILTER_CONFIG.typePriority.default;
+        const bPriority = FILTER_CONFIG.typePriority[b] || FILTER_CONFIG.typePriority.default;
+        
+        if (aPriority !== bPriority) {
+          return aPriority - bPriority;
         }
-        const data = await response.json();
-        return data.values || [];
-      } catch (error) {
-        console.error("Ошибка при загрузке данных:", error);
-        return [];
+        
+        return a.localeCompare(b);
+      });
+      
+      sortedTypes.forEach(type => {
+        const count = products.filter(p => p.type === type).length;
+        const label = document.createElement('label');
+        
+        label.innerHTML = `
+          <input type="checkbox" data-type="${type}" 
+            ${selectedTypes.has(type) ? 'checked' : ''} 
+            onchange="toggleTypeFilter(this)">
+          <span>${type}</span> (${count})
+        `;
+        
+        container.appendChild(label);
+      });
+      
+      updateTypeCounter();
+    }
+    
+    // Отображение фильтров размеров
+    function renderSizeFilters() {
+      const container = document.getElementById('sizeFilters');
+      container.innerHTML = '';
+      
+      // Сортируем размеры по возрастанию
+      const sortedSizes = Array.from(availableSizes).sort((a, b) => a - b);
+      
+      sortedSizes.forEach(size => {
+        const label = document.createElement('label');
+        label.innerHTML = `
+          <input type="checkbox" data-size="${size}" 
+            ${selectedSizes.has(size) ? 'checked' : ''} 
+            onchange="toggleSizeFilter(this)">
+          ${size.toString().replace('.', ',')}
+        `;
+        
+        container.appendChild(label);
+      });
+      
+      updateSizeCounter();
+    }
+    
+    // Переключение фильтра бренда
+    function toggleBrandFilter(checkbox) {
+      const brand = checkbox.dataset.brand;
+      
+      if (checkbox.checked) {
+        selectedBrands.add(brand);
+      } else {
+        selectedBrands.delete(brand);
       }
+      
+      updateBrandCounter();
+      updateProductList();
+    }
+    
+    // Переключение фильтра типа
+    function toggleTypeFilter(checkbox) {
+      const type = checkbox.dataset.type;
+      
+      if (checkbox.checked) {
+        selectedTypes.add(type);
+      } else {
+        selectedTypes.delete(type);
+      }
+      
+      updateTypeCounter();
+      updateProductList();
+    }
+    
+    // Переключение фильтра размера
+    function toggleSizeFilter(checkbox) {
+      const size = parseFloat(checkbox.dataset.size);
+      
+      if (checkbox.checked) {
+        selectedSizes.add(size);
+      } else {
+        selectedSizes.delete(size);
+      }
+      
+      updateSizeCounter();
+      updateProductList();
+    }
+    
+    // Обновление счетчика выбранных брендов
+    function updateBrandCounter() {
+      document.getElementById('brandCounter').textContent = selectedBrands.size;
+    }
+    
+    // Обновление счетчика выбранных типов
+    function updateTypeCounter() {
+      document.getElementById('typeCounter').textContent = selectedTypes.size;
+    }
+    
+    // Обновление счетчика выбранных размеров
+    function updateSizeCounter() {
+      document.getElementById('sizeCounter').textContent = selectedSizes.size;
     }
 
-    function renderCatalog(products) {
-      const container = document.getElementById("catalog");
-      if (!products.length) {
-        container.innerHTML = `<div class="error">😐 Нет товаров по фильтрам</div>`;
+    // Обновление списка товаров на основе фильтров
+    function updateProductList() {
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+      
+      // Применяем фильтры
+      filteredProducts = products.filter(product => {
+        // Проверяем что у нас есть необходимые данные
+        const productName = product.name ? product.name.toLowerCase() : '';
+        const productBrand = product.brand || '';
+        const productType = product.type || '';
+        
+        // Фильтр по поисковому запросу
+        if (searchTerm && !productName.includes(searchTerm)) {
+          return false;
+        }
+        
+        // Фильтр по брендам (если выбраны)
+        if (selectedBrands.size > 0 && !selectedBrands.has(productBrand)) {
+          return false;
+        }
+        
+        // Фильтр по типам (если выбраны)
+        if (selectedTypes.size > 0 && !selectedTypes.has(productType)) {
+          return false;
+        }
+        
+        // Фильтр по размерам (если выбраны)
+        if (selectedSizes.size > 0 && Array.isArray(product.sizeArray)) {
+          // Проверяем, есть ли у товара хотя бы один выбранный размер
+          const hasSizes = product.sizeArray.some(size => selectedSizes.has(size));
+          if (!hasSizes) {
+            return false;
+          }
+        }
+        
+        return true;
+      });
+      
+      renderProducts(filteredProducts);
+    }
+    
+    // Отображение товаров
+    function renderProducts(products) {
+      const container = document.getElementById('catalog');
+      container.innerHTML = '';
+      
+      if (products.length === 0) {
+        container.innerHTML = '<div class="error">Нет товаров, соответствующих выбранным фильтрам</div>';
         return;
       }
-
-      // Сортировка по приоритету типов перед отрисовкой
-      const sorted = [...products].sort((a, b) => {
-        const getPriority = type => FILTER_CONFIG.typePriority[type] || FILTER_CONFIG.typePriority.default;
-        return getPriority(a.type) - getPriority(b.type);
-      });
-
-      container.innerHTML = sorted.map(item => {
-        // Конвертируем размеры для отображения в текущем стандарте
-        const displaySizes = currentSizeStandard === 'EU' 
-          ? item.sizes 
-          : convertProductSizes(item, currentSizeStandard);
+      
+      products.forEach(product => {
+        const item = document.createElement('div');
+        item.className = 'item';
         
-        return `
-          <div class="item">
-            <div class="item-img-container">
-              <img src="${item.photo || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='}" alt="${item.name}">
-            </div>
-            <div class="item-content">
-              <h3>${item.name}</h3>
-              <div class="item-info"><strong>Бренд:</strong> ${item.brand}</div>
-              <div class="item-info"><strong>Тип:</strong> ${item.type}</div>
-              <div class="item-info">
-                <strong>Размеры:</strong>
-                <div class="size-type-info">
-                  <span class="size-badge">${currentSizeStandard}</span>
-                </div>
-              </div>
-              <div class="sizes">${displaySizes.map(size => `<span class="size">${size}</span>`).join('')}</div>
-              <div class="price">${item.price}</div>
-            </div>
+        // Проверяем наличие массива размеров перед отображением
+        const productSizes = Array.isArray(product.sizeArray) ? product.sizeArray : [];
+        
+        // Сортируем размеры по возрастанию
+        const displaySizes = productSizes.sort((a, b) => a - b);
+        
+        // Форматируем отображение размеров
+        const sizeDisplay = displaySizes.map(size => {
+          return `<span class="size">${size.toString().replace('.', ',')}</span>`;
+        }).join('');
+        
+        // Обрабатываем изображение
+        let imageUrl = product.image || '';
+        if (imageUrl && !imageUrl.startsWith('https://') && !imageUrl.startsWith('http://')) {
+          imageUrl = `https://${imageUrl}`;
+        }
+        
+        // Добавляем прокси для изображений, чтобы избежать CORS-ошибок
+        if (imageUrl) {
+          imageUrl = `${IMAGE_PROXY}${encodeURIComponent(imageUrl)}`;
+        }
+        
+        item.innerHTML = `
+          <div class="item-img-container">
+            <img src="${imageUrl || 'placeholder.jpg'}" alt="${product.name || 'Товар'}" onerror="this.src='https://via.placeholder.com/300x200?text=Нет+изображения'">
           </div>
-return `
-          <div class="item">
-            <div class="item-img-container">
-              <img src="${item.photo || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='}" alt="${item.name}">
-            </div>
-            <div class="item-content">
-              <h3>${item.name}</h3>
-              <div class="item-info"><strong>Бренд:</strong> ${item.brand}</div>
-              <div class="item-info"><strong>Тип:</strong> ${item.type}</div>
-              <div class="item-info">
-                <strong>Размеры:</strong>
-                <div class="size-type-info">
-                  <span class="size-badge">${currentSizeStandard}</span>
-                </div>
-              </div>
-              <div class="sizes">${displaySizes.map(size => `<span class="size">${size}</span>`).join('')}</div>
-              <div class="price">${item.price}</div>
-            </div>
+          <div class="item-content">
+            <h3>${product.name || 'Без названия'}</h3>
+            <div class="item-info"><strong>Бренд:</strong> ${product.brand || 'Не указан'}</div>
+            <div class="item-info"><strong>Тип:</strong> ${product.type || 'Не указан'}</div>
+            <div class="item-info"><strong>Размеры (EU):</strong></div>
+            <div class="sizes">${sizeDisplay}</div>
+            <div class="price">${product.price ? product.price + ' грн' : 'Цена по запросу'}</div>
           </div>
         `;
-      }).join('');
-    }
-
-    function applyFilters() {
-      selectedBrands = Array.from(document.querySelectorAll('#brandFilters input:checked')).map(el => el.value);
-      selectedTypes = Array.from(document.querySelectorAll('#typeFilters input:checked')).map(el => el.value);
-      
-      // Получаем выбранные размеры в текущем стандарте
-      selectedSizes = Array.from(document.querySelectorAll('#sizeFilters input:checked')).map(el => el.value);
-      
-      const query = document.getElementById('searchInput').value.toLowerCase();
-
-      updateCounter('brandCounter', selectedBrands.length);
-      updateCounter('typeCounter', selectedTypes.length);
-      updateCounter('sizeCounter', selectedSizes.length);
-
-      const filtered = allProducts.filter(item => {
-        const matchesBrand = selectedBrands.length === 0 || selectedBrands.includes(item.brand);
-        const matchesType = selectedTypes.length === 0 || selectedTypes.includes(item.type);
         
-        // Проверка соответствия размеров с учетом текущего стандарта
-        const matchesSize = selectedSizes.length === 0 || 
-          selectedSizes.some(selectedSize => {
-            if (currentSizeStandard === 'EU') {
-              return item.sizes.includes(selectedSize);
-            } else {
-              // Конвертируем размер из текущего стандарта в EU для сравнения
-              const euSize = convertSize(selectedSize, currentSizeStandard, 'EU');
-              return euSize && item.sizes.includes(euSize);
-            }
-          });
-        
-        const matchesName = item.name.toLowerCase().includes(query);
-        return matchesBrand && matchesType && matchesSize && matchesName;
-      });
-
-      renderCatalog(filtered);
-    }
-
-    function renderFilterCheckboxes(id, items, sortFunction = null) {
-      const container = document.getElementById(id);
-      const sortedItems = sortFunction ? sortFunction(items) : [...items].sort();
-      
-      if (id === 'brandFilters') {
-        container.innerHTML = sortedItems.map(item => `
-          <label class="${FILTER_CONFIG.popularBrands.some(brand => item.toLowerCase().includes(brand.toLowerCase())) ? 'popular-brand' : ''}">
-            <input type="checkbox" value="${item}">${item}
-          </label>
-        `).join('');
-      } else if (id === 'sizeFilters') {
-        container.innerHTML = sortedItems.map(item => `
-          <label>
-            <input type="checkbox" value="${item}">${item}
-          </label>
-        `).join('');
-      } else {
-        container.innerHTML = sortedItems.map(item => `
-          <label>
-            <input type="checkbox" value="${item}">${item}
-          </label>
-        `).join('');
-      }
-      
-      container.querySelectorAll('input').forEach(el => {
-        el.addEventListener('change', applyFilters);
+        container.appendChild(item);
       });
     }
-
-    // Функция для обновления фильтров размеров при изменении стандарта
-    function updateSizeFilters(sizeStandard) {
-      const euSizes = Array.from(new Set(allProducts.flatMap(p => p.sizes)));
-      const convertedSizes = [];
-      
-      euSizes.forEach(euSize => {
-        if (sizeStandard === 'EU') {
-          convertedSizes.push(euSize);
-        } else {
-          const convertedSize = convertSize(euSize, 'EU', sizeStandard);
-          if (convertedSize) {
-            convertedSizes.push(convertedSize);
-          }
-        }
-      });
-      
-      // Отсортируем и уберем дубликаты
-      const uniqueConvertedSizes = Array.from(new Set(convertedSizes)).sort(compareSizes);
-      
-      // Сохраняем отмеченные значения перед обновлением
-      const checkedValues = Array.from(document.querySelectorAll('#sizeFilters input:checked')).map(el => el.value);
-      
-      // Рендерим новые фильтры
-      renderFilterCheckboxes("sizeFilters", uniqueConvertedSizes, compareSizes);
-      
-      // Восстанавливаем отмеченные значения, если они все еще существуют в новом стандарте
-      if (checkedValues.length) {
-        document.querySelectorAll('#sizeFilters input').forEach(input => {
-          if (checkedValues.includes(input.value)) {
-            input.checked = true;
-          }
-        });
-      }
-    }
-
-    async function loadCatalog() {
-      try {
-        // Инициализируем обратную таблицу конвертации
-        initializeReverseConversion();
-        
-        const [shortData, longData] = await Promise.all([
-          fetchSheet(SHEET_ID_SHORT, "TDSheet!A2:Z"),
-          fetchSheet(SHEET_ID_LONG, "TDSheet!A2:Z")
-        ]);
-
-        const sizeMap = {}, priceMap = {};
-        shortData.forEach(row => {
-          const article = row[0]?.trim(), size = cleanSize(row[1]), price = row[2];
-          if (article) {
-            if (!sizeMap[article]) sizeMap[article] = new Set();
-            if (size) sizeMap[article].add(size);
-            const numPrice = parseFloat((price || '').replace(/\s/g, '').replace(',', '.'));
-            if (!isNaN(numPrice)) {
-              if (!priceMap[article] || numPrice < priceMap[article]) priceMap[article] = numPrice;
-            }
-          }
-        });
-
-        const brandSet = new Set(), typeSet = new Set(), sizeSet = new Set();
-        const uniqueArticles = new Set();
-        allProducts = [];
-
-        longData.forEach(row => {
-          const article = row[0]?.trim();
-          const name = row[1]?.trim();
-          const typeRaw = row[16]?.trim();
-          const brand = row[15]?.trim();
-          const photo = processImageUrl(extractFirstPhoto(row[23]));
-          const longPrice = row[18];
-          const type = typeRaw === 'Взуття' ? 'Кросівки' : typeRaw;
-
-          if (!article || !name || typeRaw !== "Взуття") return;
-          if (uniqueArticles.has(article)) return;
-
-          const sizes = sizeMap[article] ? Array.from(sizeMap[article]).sort(compareSizes) : [];
-          const product = {
-            article, name, brand: brand || "Не указан", type,
-            photo, price: formatPrice(priceMap[article] || longPrice),
-            sizes, // EU размеры для хранения
-            originalSizes: sizes, // Сохраняем оригинальные размеры для конвертации
-          };
-
-          if (validateProduct(product)) {
-            allProducts.push(product);
-            uniqueArticles.add(article);
-            if (product.brand) brandSet.add(product.brand);
-            if (product.type) typeSet.add(product.type);
-            product.sizes.forEach(s => sizeSet.add(s));
-          }
-        });
-
-        renderFilterCheckboxes("brandFilters", Array.from(brandSet), sortBrands);
-        renderFilterCheckboxes("typeFilters", Array.from(typeSet).sort());
-        renderFilterCheckboxes("sizeFilters", Array.from(sizeSet).sort(compareSizes));
-
-        // Инициализация счетчиков фильтров
-        updateCounter('brandCounter', 0);
-        updateCounter('typeCounter', 0);
-        updateCounter('sizeCounter', 0);
-
-        // По умолчанию разворачиваем фильтры
-        document.querySelectorAll('.filter-title').forEach(title => {
-          if (!title.classList.contains('collapsed')) {
-            title.classList.add('collapsed');
-            title.nextElementSibling.classList.add('collapsed');
-          }
-        });
-        // Разворачиваем первый фильтр (Бренды)
-        const firstFilter = document.querySelector('.filter-title');
-        if (firstFilter) {
-          firstFilter.classList.remove('collapsed');
-          firstFilter.nextElementSibling.classList.remove('collapsed');
-        }
-
-        applyFilters();
-      } catch (error) {
-        console.error("Ошибка при загрузке каталога:", error);
-        document.getElementById("catalog").innerHTML = `
-          <div class="error">😔 Произошла ошибка при загрузке товаров. Пожалуйста, обновите страницу.</div>
-        `;
-      }
-    }
-
-    document.getElementById("searchInput").addEventListener("input", applyFilters);
     
-    // Обработчик изменения стандарта размеров
-    document.getElementById("sizeStandard").addEventListener("change", function() {
-      currentSizeStandard = this.value;
-      
-      // Обновляем фильтры размеров в соответствии с выбранным стандартом
-      updateSizeFilters(currentSizeStandard);
-      
-      // Применяем фильтры для обновления списка товаров
-      applyFilters();
-    });
-    
-    document.addEventListener("DOMContentLoaded", loadCatalog);
+    // Показать ошибку
+    function showError(message) {
+      const container = document.getElementById('catalog');
+      container.innerHTML = `<div class="error">Ошибка: ${message}</div>`;
+    }
   </script>
 </body>
 </html>
