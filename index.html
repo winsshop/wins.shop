@@ -582,102 +582,130 @@ vans: {
     }
 
     // Загрузка данных из Google Sheets
-    async function fetchProducts() {
-      try {
-        // Получаем данные из двух источников и объединяем
-        const productsShort = await fetchSheetData(SHEET_ID_SHORT);
-        const productsLong = await fetchSheetData(SHEET_ID_LONG);
-        
-        // Объединяем и обрабатываем данные
-        let allProducts = [...productsShort, ...productsLong];
-        
-        // Обработка данных
-        allProducts = allProducts.filter(product => {
-          // Фильтруем по брендам и ключевым словам
-          if (FILTER_CONFIG.excludedBrands.includes(product.brand)) return false;
-          
-          // Проверяем исключаемые ключевые слова в названии
-          for (const keyword of FILTER_CONFIG.excludedKeywords) {
-            if (product.name.includes(keyword)) return false;
-          }
-          
-          return true;
-        });
-        
-        return allProducts;
-      } catch (error) {
-        throw new Error(`Ошибка загрузки данных: ${error.message}`);
+async function fetchProducts() {
+  try {
+    // Получаем данные из двух источников и объединяем
+    const productsShort = await fetchSheetData(SHEET_ID_SHORT);
+    const productsLong = await fetchSheetData(SHEET_ID_LONG);
+    
+    // Объединяем и обрабатываем данные
+    let allProducts = [...productsShort, ...productsLong];
+    
+    // Обработка данных
+    allProducts = allProducts.filter(product => {
+      // Фильтруем по брендам и ключевым словам
+      if (!product.brand || FILTER_CONFIG.excludedBrands.includes(product.brand)) return false;
+      
+      // Проверяем что название существует
+      if (!product.name) return false;
+      
+      // Проверяем исключаемые ключевые слова в названии
+      for (const keyword of FILTER_CONFIG.excludedKeywords) {
+        if (product.name.includes(keyword)) return false;
       }
-    }
+      
+      return true;
+    });
+    
+    return allProducts;
+  } catch (error) {
+    throw new Error(`Ошибка загрузки данных: ${error.message}`);
+  }
+}
+
+
 
     // Загрузка данных из конкретного источника
-    async function fetchSheetData(sheetId) {
-      try {
-        const response = await fetch(
-          `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/TDSheet?key=${API_KEY}`
-        );
-        
-        if (!response.ok) {
-          throw new Error(`API Error: ${response.status}`);
+async function fetchSheetData(sheetId) {
+  try {
+    const response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/TDSheet?key=${API_KEY}`
+    );
+    
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    // Проверяем, что данные получены
+    if (!data || !data.values || !data.values.length) {
+      throw new Error('Нет данных в таблице');
+    }
+    
+    const rows = data.values;
+    
+    // Проверяем, что есть хотя бы заголовок
+    if (rows.length < 1) {
+      throw new Error('Таблица не содержит данных');
+    }
+    
+    // Предполагаем, что первая строка содержит заголовки
+    const headers = rows[0];
+    return rows.slice(1).map(row => {
+      const product = {};
+      headers.forEach((header, index) => {
+        if (header) { // Проверяем, что заголовок существует
+          product[header.toLowerCase()] = row[index] || '';
         }
-        
-        const data = await response.json();
-        const rows = data.values;
-        
-        // Предполагаем, что первая строка содержит заголовки
-        const headers = rows[0];
-        return rows.slice(1).map(row => {
-          const product = {};
-          headers.forEach((header, index) => {
-            product[header.toLowerCase()] = row[index] || '';
-          });
-          
-          // Обработка размеров
-          if (product.sizes) {
-            product.sizeArray = product.sizes.split(',')
-              .map(size => parseFloat(size.trim()))
-              .filter(size => !isNaN(size));
-          } else {
-            product.sizeArray = [];
-          }
-          
-          return product;
-        });
-      } catch (error) {
-        throw new Error(`Ошибка загрузки данных из таблицы: ${error.message}`);
+      });
+      
+      // Устанавливаем значения по умолчанию для важных полей
+      product.brand = product.brand || '';
+      product.name = product.name || '';
+      product.type = product.type || '';
+      
+      // Обработка размеров
+      if (product.sizes) {
+        product.sizeArray = product.sizes.split(',')
+          .map(size => parseFloat(size.trim()))
+          .filter(size => !isNaN(size));
+      } else {
+        product.sizeArray = [];
       }
-    }
+      
+      return product;
+    });
+  } catch (error) {
+    console.error('Ошибка при загрузке данных:', error);
+    throw new Error(`Ошибка загрузки данных из таблицы: ${error.message}`);
+  }
+}
 // Инициализация фильтров
-    function initializeFilters() {
-      // Собираем все доступные данные для фильтров
-      products.forEach(product => {
-        // Добавляем бренд
-        if (product.brand) {
-          availableBrands.add(product.brand.trim());
-        }
-        
-        // Добавляем тип
-        if (product.type) {
-          availableTypes.add(product.type.trim());
-        }
-        
-        // Добавляем размеры
-        product.sizeArray.forEach(size => {
+function initializeFilters() {
+  // Собираем все доступные данные для фильтров
+  products.forEach(product => {
+    // Добавляем бренд
+    if (product.brand && product.brand.trim()) {
+      availableBrands.add(product.brand.trim());
+    }
+    
+    // Добавляем тип
+    if (product.type && product.type.trim()) {
+      availableTypes.add(product.type.trim());
+    }
+    
+    // Добавляем размеры
+    if (Array.isArray(product.sizeArray)) {
+      product.sizeArray.forEach(size => {
+        if (!isNaN(size) && size > 0) {
           availableSizes.add(size);
-        });
-      });
-      
-      // Инициализируем фильтры
-      renderBrandFilters();
-      renderTypeFilters();
-      renderSizeFilters();
-      
-      // Добавляем обработчики событий для открытия/закрытия фильтров
-      const filterTitles = document.querySelectorAll('.filter-title');
-      filterTitles.forEach(title => {
-        title.addEventListener('click', () => toggleFilter(title));
+        }
       });
     }
+  });
+  
+  // Инициализируем фильтры
+  renderBrandFilters();
+  renderTypeFilters();
+  renderSizeFilters();
+  
+  // Добавляем обработчики событий для открытия/закрытия фильтров
+  const filterTitles = document.querySelectorAll('.filter-title');
+  filterTitles.forEach(title => {
+    title.addEventListener('click', () => toggleFilter(title));
+  });
+}
     
     // Переключение видимости фильтра
     function toggleFilter(element) {
@@ -904,94 +932,102 @@ vans: {
       document.getElementById('sizeCounter').textContent = selectedSizes.size;
     }
 // Обновление списка товаров на основе фильтров
-    function updateProductList() {
-      const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-      
-      // Применяем фильтры
-      filteredProducts = products.filter(product => {
-        // Фильтр по поисковому запросу
-        if (searchTerm && !product.name.toLowerCase().includes(searchTerm)) {
-          return false;
-        }
-        
-        // Фильтр по брендам (если выбраны)
-        if (selectedBrands.size > 0 && !selectedBrands.has(product.brand)) {
-          return false;
-        }
-        
-        // Фильтр по типам (если выбраны)
-        if (selectedTypes.size > 0 && !selectedTypes.has(product.type)) {
-          return false;
-        }
-        
-        // Фильтр по размерам (если выбраны)
-        if (selectedSizes.size > 0) {
-          // Проверяем, есть ли у товара хотя бы один выбранный размер
-          const hasSizes = product.sizeArray.some(size => selectedSizes.has(size));
-          if (!hasSizes) {
-            return false;
-          }
-        }
-        
-        return true;
-      });
-      
-      renderProducts(filteredProducts);
+function updateProductList() {
+  const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+  
+  // Применяем фильтры
+  filteredProducts = products.filter(product => {
+    // Проверяем что у нас есть необходимые данные
+    const productName = product.name ? product.name.toLowerCase() : '';
+    const productBrand = product.brand || '';
+    const productType = product.type || '';
+    
+    // Фильтр по поисковому запросу
+    if (searchTerm && !productName.includes(searchTerm)) {
+      return false;
     }
     
-    // Отображение товаров
-    function renderProducts(products) {
-      const container = document.getElementById('catalog');
-      container.innerHTML = '';
-      
-      if (products.length === 0) {
-        container.innerHTML = '<div class="error">Нет товаров, соответствующих выбранным фильтрам</div>';
-        return;
-      }
-      
-      products.forEach(product => {
-        const item = document.createElement('div');
-        item.className = 'item';
-        
-        // Преобразуем размеры в выбранный стандарт для отображения
-        const displaySizes = product.sizeArray
-          .map(euSize => convertSizeFromEU(euSize, currentSizeStandard))
-          .filter(size => size !== null) // Удаляем null значения
-          .sort((a, b) => a - b); // Сортируем по возрастанию
-        
-        // Форматируем отображение размеров
-        const sizeDisplay = displaySizes.map(size => {
-          return `<span class="size">${size.toString().replace('.', ',')}</span>`;
-        }).join('');
-        
-        // Обрабатываем изображение
-        let imageUrl = product.image || '';
-        if (imageUrl && !imageUrl.startsWith('https://') && !imageUrl.startsWith('http://')) {
-          imageUrl = `https://${imageUrl}`;
-        }
-        
-        // Добавляем прокси для изображений, чтобы избежать CORS-ошибок
-        if (imageUrl) {
-          imageUrl = `${IMAGE_PROXY}${encodeURIComponent(imageUrl)}`;
-        }
-        
-        item.innerHTML = `
-          <div class="item-img-container">
-            <img src="${imageUrl || 'placeholder.jpg'}" alt="${product.name}" onerror="this.src='https://via.placeholder.com/300x200?text=Нет+изображения'">
-          </div>
-          <div class="item-content">
-            <h3>${product.name}</h3>
-            <div class="item-info"><strong>Бренд:</strong> ${product.brand}</div>
-            <div class="item-info"><strong>Тип:</strong> ${product.type || 'Не указан'}</div>
-            <div class="item-info"><strong>Размеры (${currentSizeStandard}):</strong></div>
-            <div class="sizes">${sizeDisplay}</div>
-            <div class="price">${product.price ? product.price + ' грн' : 'Цена по запросу'}</div>
-          </div>
-        `;
-        
-        container.appendChild(item);
-      });
+    // Фильтр по брендам (если выбраны)
+    if (selectedBrands.size > 0 && !selectedBrands.has(productBrand)) {
+      return false;
     }
+    
+    // Фильтр по типам (если выбраны)
+    if (selectedTypes.size > 0 && !selectedTypes.has(productType)) {
+      return false;
+    }
+    
+    // Фильтр по размерам (если выбраны)
+    if (selectedSizes.size > 0 && Array.isArray(product.sizeArray)) {
+      // Проверяем, есть ли у товара хотя бы один выбранный размер
+      const hasSizes = product.sizeArray.some(size => selectedSizes.has(size));
+      if (!hasSizes) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+  
+  renderProducts(filteredProducts);
+}
+    
+    // Отображение товаров
+function renderProducts(products) {
+  const container = document.getElementById('catalog');
+  container.innerHTML = '';
+  
+  if (products.length === 0) {
+    container.innerHTML = '<div class="error">Нет товаров, соответствующих выбранным фильтрам</div>';
+    return;
+  }
+  
+  products.forEach(product => {
+    const item = document.createElement('div');
+    item.className = 'item';
+    
+    // Проверяем наличие массива размеров перед преобразованием
+    const productSizes = Array.isArray(product.sizeArray) ? product.sizeArray : [];
+    
+    // Преобразуем размеры в выбранный стандарт для отображения
+    const displaySizes = productSizes
+      .map(euSize => convertSizeFromEU(euSize, currentSizeStandard))
+      .filter(size => size !== null) // Удаляем null значения
+      .sort((a, b) => a - b); // Сортируем по возрастанию
+    
+    // Форматируем отображение размеров
+    const sizeDisplay = displaySizes.map(size => {
+      return `<span class="size">${size.toString().replace('.', ',')}</span>`;
+    }).join('');
+    
+    // Обрабатываем изображение
+    let imageUrl = product.image || '';
+    if (imageUrl && !imageUrl.startsWith('https://') && !imageUrl.startsWith('http://')) {
+      imageUrl = `https://${imageUrl}`;
+    }
+    
+    // Добавляем прокси для изображений, чтобы избежать CORS-ошибок
+    if (imageUrl) {
+      imageUrl = `${IMAGE_PROXY}${encodeURIComponent(imageUrl)}`;
+    }
+    
+    item.innerHTML = `
+      <div class="item-img-container">
+        <img src="${imageUrl || 'placeholder.jpg'}" alt="${product.name || 'Товар'}" onerror="this.src='https://via.placeholder.com/300x200?text=Нет+изображения'">
+      </div>
+      <div class="item-content">
+        <h3>${product.name || 'Без названия'}</h3>
+        <div class="item-info"><strong>Бренд:</strong> ${product.brand || 'Не указан'}</div>
+        <div class="item-info"><strong>Тип:</strong> ${product.type || 'Не указан'}</div>
+        <div class="item-info"><strong>Размеры (${currentSizeStandard}):</strong></div>
+        <div class="sizes">${sizeDisplay}</div>
+        <div class="price">${product.price ? product.price + ' грн' : 'Цена по запросу'}</div>
+      </div>
+    `;
+    
+    container.appendChild(item);
+  });
+}
     
     // Показать ошибку
     function showError(message) {
