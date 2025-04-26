@@ -1118,4 +1118,355 @@ renderFilterCheckboxes("brandFilters", Array.from(brandSet), sortBrands);
         };
       });
     }
+// Оптимизация отображения товаров с виртуализацией списка
+function optimizeRendering() {
+  const catalogContainer = document.getElementById('catalog');
+  const itemHeight = 300; // Приблизительная высота карточки товара
+  
+  // Определяем, сколько товаров должно быть видно (с запасом)
+  const viewportHeight = window.innerHeight;
+  const visibleItems = Math.ceil(viewportHeight / itemHeight) + 5;
+  
+  // Если товаров больше определенного количества, применяем виртуализацию
+  if (filteredProducts.length > 100) {
+    // Логика виртуализации для очень больших списков
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    const endIdx = Math.min(startIdx + itemsPerPage, filteredProducts.length);
+    const paginatedItems = filteredProducts.slice(startIdx, endIdx);
+    
+    const visibleElements = paginatedItems.map(item => `
+      <div class="item">
+        <div class="item-img-container">
+          <img src="${item.photo || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='}" alt="${item.name}" loading="lazy">
+        </div>
+        <div class="item-content">
+          <h3>${item.name}</h3>
+          <div class="item-info"><strong>Бренд:</strong> ${item.brand}</div>
+          <div class="item-info"><strong>Тип:</strong> ${item.type}</div>
+          <div class="item-info"><strong>Размеры:</strong></div>
+          <div class="sizes">${item.sizes.map(size => `<span class="size">${size}</span>`).join('')}</div>
+          <div class="price">${item.price}</div>
+        </div>
+      </div>
+    `).join('');
+    
+    catalogContainer.innerHTML = visibleElements;
+    
+    // После рендеринга оптимизируем изображения
+    optimizeImages();
+  }
+}
+
+// Обновленная функция applyFilters с использованием кеширования
+function applyFilters() {
+  selectedBrands = Array.from(document.querySelectorAll('#brandFilters input:checked')).map(el => el.value);
+  selectedTypes = Array.from(document.querySelectorAll('#typeFilters input:checked')).map(el => el.value);
+  selectedSizes = Array.from(document.querySelectorAll('#sizeFilters input:checked')).map(el => el.value);
+  const query = document.getElementById('searchInput').value.toLowerCase();
+
+  updateCounter('brandCounter', selectedBrands.length);
+  updateCounter('typeCounter', selectedTypes.length);
+  updateCounter('sizeCounter', selectedSizes.length);
+
+  // Проверяем кеш перед фильтрацией
+  const cachedResults = getCachedFilterResults();
+  if (cachedResults) {
+    filteredProducts = cachedResults;
+  } else {
+    filteredProducts = allProducts.filter(item => {
+      const matchesBrand = selectedBrands.length === 0 || selectedBrands.includes(item.brand);
+      const matchesType = selectedTypes.length === 0 || selectedTypes.includes(item.type);
+      const matchesSize = selectedSizes.length === 0 || item.sizes.some(size => selectedSizes.includes(size));
+      const matchesName = item.name.toLowerCase().includes(query);
+      return matchesBrand && matchesType && matchesSize && matchesName;
+    });
+
+    // Сортировка по приоритету типов
+    filteredProducts.sort((a, b) => {
+      const getPriority = type => FILTER_CONFIG.typePriority[type] || FILTER_CONFIG.typePriority.default;
+      return getPriority(a.type) - getPriority(b.type);
+    });
+    
+    // Сохраняем результаты в кеш
+    setCachedFilterResults(filteredProducts);
+  }
+  
+  // При изменении фильтров сбрасываем на первую страницу
+  currentPage = 1;
+  
+  // Обновляем URL с новыми параметрами
+  updateUrlParams();
+  
+  // Рендерим каталог
+  renderCatalog();
+}
+
+// Улучшенная функция оптимизации изображений
+function optimizeImages() {
+  document.querySelectorAll('.item img').forEach(img => {
+    // Используем формат webp для поддерживаемых браузеров
+    if ('matchMedia' in window && window.matchMedia('(min-resolution: 0.001dpcm)').matches) {
+      const originalSrc = img.src;
+      if (originalSrc.includes('weserv.nl')) {
+        img.src = originalSrc + '&output=webp&q=85';
+      }
+    }
+    
+    // Устанавливаем атрибут loading="lazy" для нативной ленивой загрузки
+    img.loading = 'lazy';
+    
+    // Устанавливаем декодирование асинхронно для улучшения производительности
+    img.decoding = 'async';
+    
+    // Добавляем обработку ошибок загрузки изображений
+    img.onerror = function() {
+      this.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+      this.alt = 'Изображение недоступно';
+    };
+  });
+}
+
+// Обновленная функция renderCatalog с использованием оптимизации
+function renderCatalog() {
+  const container = document.getElementById("catalog");
+  
+  if (!filteredProducts.length) {
+    container.innerHTML = `<div class="error">😐 Нет товаров по фильтрам</div>`;
+    renderPagination();
+    return;
+  }
+  
+  // Проверяем, нужно ли использовать виртуализацию
+  if (filteredProducts.length > 100 && window.innerWidth > 768) {
+    optimizeRendering();
+  } else {
+    // Стандартный рендеринг
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginatedItems = filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+    
+    container.innerHTML = paginatedItems.map(item => `
+      <div class="item">
+        <div class="item-img-container">
+          <img src="${item.photo || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='}" alt="${item.name}" loading="lazy">
+        </div>
+        <div class="item-content">
+          <h3>${item.name}</h3>
+          <div class="item-info"><strong>Бренд:</strong> ${item.brand}</div>
+          <div class="item-info"><strong>Тип:</strong> ${item.type}</div>
+          <div class="item-info"><strong>Размеры:</strong></div>
+          <div class="sizes">${item.sizes.map(size => `<span class="size">${size}</span>`).join('')}</div>
+          <div class="price">${item.price}</div>
+        </div>
+      </div>
+    `).join('');
+    
+    // После рендеринга оптимизируем изображения
+    optimizeImages();
+  }
+  
+  renderPagination();
+}
+
+// Дополнительная оптимизация - ограничение частоты вызова функций
+function debounce(func, wait) {
+  let timeout;
+  return function() {
+    const context = this;
+    const args = arguments;
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      func.apply(context, args);
+    }, wait);
+  };
+}
+
+// Оптимизированная обработка поиска
+const debouncedSearch = debounce(() => {
+  applyFilters();
+}, 300);
+
+// Функция для измерения производительности
+function measurePerformance(func, label) {
+  const startTime = performance.now();
+  func();
+  const endTime = performance.now();
+  console.log(`${label}: ${endTime - startTime}ms`);
+}
+
+// Обработчик изменения размера окна для адаптивности
+function handleResize() {
+  // Пересчитываем оптимальное отображение при изменении размера окна
+  if (document.getElementById("catalog").children.length > 0) {
+    renderCatalog();
+  }
+}
+
+// Обработчик прокрутки для оптимизации загрузки изображений
+function handleScroll() {
+  // Ленивая загрузка изображений для видимых элементов
+  setupLazyLoading();
+}
+
+// Улучшенная функция ленивой загрузки с IntersectionObserver
+function setupLazyLoading() {
+  if ('IntersectionObserver' in window) {
+    const lazyImageObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const lazyImage = entry.target;
+          if (lazyImage.dataset.src) {
+            lazyImage.src = lazyImage.dataset.src;
+            lazyImage.removeAttribute('data-src');
+            // Оптимизируем отдельное изображение
+            if ('matchMedia' in window && window.matchMedia('(min-resolution: 0.001dpcm)').matches) {
+              if (lazyImage.src.includes('weserv.nl')) {
+                lazyImage.src = lazyImage.src + '&output=webp&q=85';
+              }
+            }
+            lazyImageObserver.unobserve(lazyImage);
+          }
+        }
+      });
+    }, {
+      rootMargin: '200px' // Загружаем изображения заранее
+    });
+
+    // Наблюдаем за всеми изображениями
+    document.querySelectorAll('.item img[data-src]').forEach((img) => {
+      lazyImageObserver.observe(img);
+    });
+  } else {
+    // Fallback для браузеров без поддержки IntersectionObserver
+    document.querySelectorAll('.item img[data-src]').forEach((img) => {
+      img.src = img.dataset.src;
+      img.removeAttribute('data-src');
+    });
+  }
+}
+
+// Функция для предварительной загрузки изображений следующей страницы
+function preloadNextPageImages() {
+  if (currentPage < Math.ceil(filteredProducts.length / itemsPerPage)) {
+    const nextPageStart = currentPage * itemsPerPage;
+    const nextPageEnd = Math.min(nextPageStart + itemsPerPage, filteredProducts.length);
+    
+    for (let i = nextPageStart; i < nextPageEnd; i++) {
+      const product = filteredProducts[i];
+      if (product && product.photo) {
+        const preloadLink = document.createElement('link');
+        preloadLink.rel = 'prefetch';
+        preloadLink.href = product.photo;
+        document.head.appendChild(preloadLink);
+      }
+    }
+  }
+}
+
+// Инициализация при загрузке страницы
+document.addEventListener("DOMContentLoaded", () => {
+  // Сначала загружаем параметры из URL
+  loadFromUrlParams();
+  
+  // Затем загружаем данные каталога
+  loadCatalog().then(() => {
+    // После загрузки данных применяем сохраненные фильтры
+    applyStoredFilters();
+    
+    // Устанавливаем улучшенные обработчики событий
+    document.getElementById("searchInput").addEventListener("input", debouncedSearch);
+    
+    document.getElementById("itemsPerPage").addEventListener("change", function() {
+      itemsPerPage = parseInt(this.value);
+      currentPage = 1; // При изменении количества товаров сбрасываем на первую страницу
+      renderCatalog();
+      updateUrlParams();
+      preloadNextPageImages(); // Предзагружаем изображения следующей страницы
+    });
+    
+    // Добавляем обработчики для окна
+    window.addEventListener('resize', debounce(handleResize, 200));
+    window.addEventListener('scroll', debounce(handleScroll, 200));
+    
+    // Предзагрузка изображений следующей страницы
+    preloadNextPageImages();
+  });
+});
+
+// Обновление глобальных функций
+window.changePage = function(page) {
+  changePage(page);
+  updateUrlParams();
+  preloadNextPageImages(); // Предзагружаем изображения следующей страницы
+};
+
+window.toggleFilter = function(element) {
+  toggleFilter(element);
+};
+
+// Добавляем сервис-воркер для кеширования и оффлайн-доступа
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    // Создаем простой сервис-воркер для кеширования
+    const swContent = `
+      const CACHE_NAME = 'sneakers-catalog-v1';
+      const urlsToCache = [
+        '/',
+        '/index.html',
+        '/styles.css',
+        '/main.js'
+      ];
+
+      self.addEventListener('install', event => {
+        event.waitUntil(
+          caches.open(CACHE_NAME)
+            .then(cache => cache.addAll(urlsToCache))
+        );
+      });
+
+      self.addEventListener('fetch', event => {
+        event.respondWith(
+          caches.match(event.request)
+            .then(response => response || fetch(event.request)
+              .then(res => {
+                // Не кешируем API-запросы к Google Sheets
+                if (event.request.url.includes('sheets.googleapis.com')) {
+                  return res;
+                }
+                
+                return caches.open(CACHE_NAME)
+                  .then(cache => {
+                    cache.put(event.request, res.clone());
+                    return res;
+                  });
+              })
+            )
+        );
+      });
+    `;
+    
+    // Создаем Blob из строки с кодом сервис-воркера
+    const blob = new Blob([swContent], {type: 'text/javascript'});
+    const swUrl = URL.createObjectURL(blob);
+    
+    navigator.serviceWorker.register(swUrl)
+      .then(reg => console.log('Service worker registered'))
+      .catch(err => console.error('Service worker registration failed:', err));
+  });
+}
+
+// Добавляем метрику загрузки для мониторинга производительности
+if ('performance' in window && 'PerformanceObserver' in window) {
+  const observer = new PerformanceObserver((list) => {
+    list.getEntries().forEach((entry) => {
+      if (entry.entryType === 'largest-contentful-paint') {
+        console.log(`LCP: ${entry.startTime}`);
+      }
+      if (entry.entryType === 'first-input') {
+        console.log(`FID: ${entry.processingStart - entry.startTime}`);
+      }
+    });
+  });
+  
+  observer.observe({ entryTypes: ['largest-contentful-paint', 'first-input'] });
+}
   </script>
