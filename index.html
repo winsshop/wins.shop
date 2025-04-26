@@ -310,6 +310,36 @@
         width: 100%;
         max-width: 300px;
       }
+.pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 30px;
+  gap: 10px;
+}
+
+.pagination button {
+  padding: 8px 15px;
+  background: white;
+  border: 1px solid var(--medium-gray);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pagination button:hover {
+  background: var(--light-gray);
+}
+
+.pagination button.active {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
     }
   </style>
 </head>
@@ -352,6 +382,7 @@
       </div>
     </div>
     <div id="catalog">
+<div class="pagination" id="pagination"></div>
       <div class="loading">
         <div class="loading-spinner"></div>
         Загружаем товары...
@@ -393,6 +424,9 @@
     let selectedBrands = [];
     let selectedSizes = [];
     let selectedTypes = [];
+let currentPage = 1;
+const itemsPerPage = 12;
+let totalPages = 1;
 
     function toggleFilter(element) {
       const content = element.nextElementSibling;
@@ -507,55 +541,43 @@
     }
 
     function renderCatalog(products) {
-      const container = document.getElementById("catalog");
-      if (!products.length) {
-        container.innerHTML = `<div class="error">😐 Нет товаров по фильтрам</div>`;
-        return;
-      }
+function renderPagination(totalPages, totalItems) {
+  const container = document.getElementById("pagination");
+  if (totalPages <= 1) {
+    container.innerHTML = '';
+    return;
+  }
 
-      // Сортировка по приоритету типов перед отрисовкой
-      const sorted = [...products].sort((a, b) => {
-        const getPriority = type => FILTER_CONFIG.typePriority[type] || FILTER_CONFIG.typePriority.default;
-        return getPriority(a.type) - getPriority(b.type);
-      });
+  let html = `
+    <button id="prevPage" ${currentPage === 1 ? 'disabled' : ''}>❮ Назад</button>
+    <span style="align-self: center;">Страница ${currentPage} из ${totalPages} (всего ${totalItems} товаров)</span>
+    <button id="nextPage" ${currentPage === totalPages ? 'disabled' : ''}>Вперед ❯</button>
+  `;
 
-      container.innerHTML = sorted.map(item => `
-        <div class="item">
-          <div class="item-img-container">
-            <img src="${item.photo || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='}" alt="${item.name}">
-          </div>
-          <div class="item-content">
-            <h3>${item.name}</h3>
-            <div class="item-info"><strong>Бренд:</strong> ${item.brand}</div>
-            <div class="item-info"><strong>Тип:</strong> ${item.type}</div>
-            <div class="item-info"><strong>Размеры:</strong></div>
-            <div class="sizes">${item.sizes.map(size => `<span class="size">${size}</span>`).join('')}</div>
-            <div class="price">${item.price}</div>
-          </div>
-        </div>
-      `).join('');
+  container.innerHTML = html;
+
+  document.getElementById("prevPage")?.addEventListener("click", () => {
+    if (currentPage > 1) {
+      currentPage--;
+      applyFilters();
+if (this && this.type === "checkbox") {
+  currentPage = 1;
+}
+      window.scrollTo(0, 0);
     }
+  });
 
-    function applyFilters() {
-      selectedBrands = Array.from(document.querySelectorAll('#brandFilters input:checked')).map(el => el.value);
-      selectedTypes = Array.from(document.querySelectorAll('#typeFilters input:checked')).map(el => el.value);
-      selectedSizes = Array.from(document.querySelectorAll('#sizeFilters input:checked')).map(el => el.value);
-      const query = document.getElementById('searchInput').value.toLowerCase();
-
-      updateCounter('brandCounter', selectedBrands.length);
-      updateCounter('typeCounter', selectedTypes.length);
-      updateCounter('sizeCounter', selectedSizes.length);
-
-      const filtered = allProducts.filter(item => {
-        const matchesBrand = selectedBrands.length === 0 || selectedBrands.includes(item.brand);
-        const matchesType = selectedTypes.length === 0 || selectedTypes.includes(item.type);
-        const matchesSize = selectedSizes.length === 0 || item.sizes.some(size => selectedSizes.includes(size));
-        const matchesName = item.name.toLowerCase().includes(query);
-        return matchesBrand && matchesType && matchesSize && matchesName;
-      });
-
-      renderCatalog(filtered);
+  document.getElementById("nextPage")?.addEventListener("click", () => {
+    if (currentPage < totalPages) {
+      currentPage++;
+      applyFilters();
+if (this && this.type === "checkbox") {
+  currentPage = 1;
+}
+      window.scrollTo(0, 0);
     }
+  });
+}
 
     function renderFilterCheckboxes(id, items, sortFunction = null) {
       const container = document.getElementById(id);
